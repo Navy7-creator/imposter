@@ -1,0 +1,263 @@
+import asyncio
+import json
+import os
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.database import connect_database, get_leaderboard, save_result
+from app.game_modes.catalog import GAME_CATALOG
+from app.game_modes.categories import CATEGORY_CATALOG
+from app.game_modes.registry import get_game_mode
+from app.lobby.room_manager import (
+    add_player,
+    advance_after_descriptions,
+    advance_after_votes,
+    get_or_create_room,
+    join_room,
+    public_room,
+    start_round,
+    start_voting,
+    set_mode,
+    set_categories,
+    set_clue_mode,
+    set_mystery_settings,
+    add_chat_message,
+    rooms,
+)
+
+load_dotenv()
+app = FastAPI(title="Imposter Object API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("CLIENT_ORIGIN", "http://localhost:5173")],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+connections = {}
+
+
+@app.on_event("startup")
+def startup():
+    try:
+        connect_database()
+    except Exception as error:
+        print(f"PostgreSQL unavailable: {error}")
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+@app.get("/games")
+def games():
+    return {"games": GAME_CATALOG}
+
+
+@app.get("/categories")
+def categories():
+    return {"categories": CATEGORY_CATALOG}
+
+
+@app.get("/leaderboard")
+def leaderboard():
+    return {"players": get_leaderboard()}
+
+
+async def send_event(websocket, event, data):
+    await websocket.send_json({"event": event, "data": data})
+
+
+async def broadcast(room, event="room:updated", data=None):
+    message = {"event": event, "data": public_room(room) if data is None else data}
+    await asyncio.gather(
+        *(websocket.send_json(message) for websocket in connections.get(room["code"], {}).values()),
+        return_exceptions=True,
+    )
+
+
+async def assignments(room):
+    mode = get_game_mode(room["modeId"])
+    for player in room["players"]:
+        websocket = connections.get(room["code"], {}).get(player["id"])
+        if websocket:
+            await send_event(websocket, "round:assignment", mode.private_assignment(room["round"], player["id"]))
+
+
+async def handle_event(websocket, event, payload):
+    room_code = websocket.scope.get("room_code")
+    player_id = websocket.scope.get("player_id")
+    room = rooms.get(room_code) if room_code else None
+
+    if event == "room:join":
+        room = join_room(payload.get("code"))
+        player = {"id": payload.get("playerId") or secrets_token(), "name": payload.get("name", "").strip()[:24], "avatar": payload.get("avatar") or "sun", "connected": True}
+        if not player["name"]:
+            raise ValueError("A player name is required")
+        add_player(room, player)
+        websocket.scope["room_code"], websocket.scope["player_id"] = room["code"], player["id"]
+        connections.setdefault(room["code"], {})[player["id"]] = websocket
+        await send_event(websocket, "room:joined", {"room": public_room(room), "player": player})
+        await broadcast(room)
+        return
+
+    if room is None:
+        raise ValueError("Join a room first")
+    mode = get_game_mode(room["modeId"])
+    if event == "room:mode":
+        set_mode(room, payload.get("modeId"), player_id)
+        await broadcast(room)
+    elif event == "room:categories":
+        set_categories(room, payload.get("categoryIds"), player_id)
+        await broadcast(room)
+    elif event == "room:clue-mode":
+        set_clue_mode(room, payload.get("clueMode"), player_id)
+        await broadcast(room)
+    elif event == "room:mystery-settings":
+        set_mystery_settings(room, payload.get("settings"), player_id)
+        await broadcast(room)
+    elif event == "room:chat":
+        add_chat_message(room, player_id, payload.get("message", ""))
+        await broadcast(room)
+    elif event == "round:start":
+        start_round(room, player_id)
+        await assignments(room)
+        await broadcast(room)
+    elif event == "round:description" and room["modeId"] in ("aware-imposter", "unaware-imposter"):
+        mode.submit_description(room["round"], player_id, payload.get("description", ""), room["clueMode"])
+        advance_after_descriptions(room)
+        await broadcast(room)
+    elif event == "round:start-voting" and room["modeId"] in ("aware-imposter", "unaware-imposter"):
+        start_voting(room)
+        await broadcast(room)
+    elif event == "round:vote" and room["modeId"] in ("aware-imposter", "unaware-imposter"):
+        mode.submit_vote(room["round"], player_id, payload.get("targetId"))
+        advance_after_votes(room)
+        await broadcast(room)
+        if room["phase"] == "results":
+            result = mode.resolve_round(room["round"])
+            save_result(room, result)
+            await broadcast(room, "round:results", result)
+    elif event == "round:guess" and room["modeId"] == "guess-number":
+        mode.submit_guess(room["round"], player_id, payload.get("targetId"), payload.get("guess"))
+        if room["round"]["winner_id"]:
+            room["phase"] = "results"
+            result = mode.resolve_round(room["round"])
+            save_result(room, result)
+            await broadcast(room, "round:results", result)
+        else:
+            await broadcast(room)
+    elif event == "round:statement" and room["modeId"] == "never-say-do":
+        mode.submit_statement(room["round"], player_id, payload.get("statement", ""), payload.get("isTrue", False))
+        if len(room["round"]["statements"]) == len(room["players"]):
+            room["phase"] = "voting"
+        await broadcast(room)
+    elif event == "round:answer" and room["modeId"] == "never-say-do":
+        mode.submit_answer(room["round"], player_id, payload.get("statementId"), payload.get("answer", False))
+        if len(room["round"]["answers"]) == len(room["players"]):
+            room["phase"] = "results"
+            result = mode.resolve_round(room["round"])
+            save_result(room, result)
+            await broadcast(room, "round:results", result)
+        else:
+            await broadcast(room)
+    elif event == "round:drawing" and room["modeId"] == "drawing-imposter":
+        mode.submit_drawing(room["round"], player_id, payload.get("drawing"))
+        if len(room["round"]["drawings"]) == len(room["players"]):
+            room["phase"] = "voting"
+        await broadcast(room)
+    elif event == "round:guess-lie-statements" and room["modeId"] == "guess-the-lie":
+        mode.submit_statements(room["round"], player_id, payload.get("statements"))
+        if len(room["round"]["statements"]) == len(room["players"]):
+            room["phase"] = "voting"
+        await broadcast(room)
+    elif event == "round:guess-lie-vote" and room["modeId"] == "guess-the-lie":
+        mode.submit_vote(room["round"], player_id, payload.get("targetId"), payload.get("statementIndex"))
+        if len(room["round"]["votes"]) == len(room["players"]):
+            room["phase"] = "results"
+            result = mode.resolve_round(room["round"])
+            save_result(room, result)
+            await broadcast(room, "round:results", result)
+        else:
+            await broadcast(room)
+    elif event == "round:mafia-night" and room["modeId"] == "mafia-mystery":
+        mode.submit_night_action(room["round"], player_id, payload.get("targetId"))
+        if mode.night_complete(room["round"]):
+            mode.resolve_night(room["round"])
+            winning = mode.winner(room["round"], room["settings"]["suddenDeath"])
+            if winning:
+                room["phase"] = "results"
+                room["round"]["winner"] = winning
+                result = mode.results(room["round"])
+                save_result(room, result)
+                await broadcast(room, "round:results", result)
+                return
+            room["phase"] = "day"
+            await assignments(room)
+        await broadcast(room)
+    elif event == "round:mafia-start-vote" and room["modeId"] == "mafia-mystery":
+        if room["phase"] != "day":
+            raise ValueError("Voting can only start during the day")
+        if not next((player for player in room["players"] if player["id"] == player_id and player["isAdmin"]), None):
+            raise ValueError("Only the host can open voting")
+        room["phase"] = "voting"
+        await broadcast(room)
+    elif event == "round:mafia-vote" and room["modeId"] == "mafia-mystery":
+        mode.submit_vote(room["round"], player_id, payload.get("targetId"))
+        if mode.votes_complete(room["round"]):
+            mode.resolve_vote(room["round"], room["settings"]["eliminateTies"])
+            winning = mode.winner(room["round"], room["settings"]["suddenDeath"])
+            if winning:
+                room["phase"] = "results"
+                room["round"]["winner"] = winning
+                result = mode.results(room["round"])
+                save_result(room, result)
+                await broadcast(room, "round:results", result)
+            else:
+                room["phase"] = "night"
+                room["round"]["round"] += 1
+                await assignments(room)
+                await broadcast(room)
+        else:
+            await broadcast(room)
+    else:
+        raise ValueError(f"Unknown event: {event}")
+
+
+def secrets_token():
+    return os.urandom(8).hex()
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            message = json.loads(await websocket.receive_text())
+            request_id = message.get("id")
+            try:
+                await handle_event(websocket, message.get("event"), message.get("payload") or {})
+                if request_id:
+                    await websocket.send_json({"response": {"id": request_id, "ok": True}})
+            except (ValueError, KeyError) as error:
+                if request_id:
+                    await websocket.send_json({"response": {"id": request_id, "error": str(error)}})
+    except WebSocketDisconnect:
+        room_code = websocket.scope.get("room_code")
+        player_id = websocket.scope.get("player_id")
+        if room_code in connections:
+            connections[room_code].pop(player_id, None)
+        if room_code in rooms:
+            room = rooms[room_code]
+            leaving_player = next((player for player in room["players"] if player["id"] == player_id), None)
+            for player in room["players"]:
+                if player["id"] == player_id:
+                    player["connected"] = False
+            if leaving_player and leaving_player.get("isAdmin"):
+                next_admin = next((player for player in room["players"] if player["connected"]), None)
+                if next_admin:
+                    for player in room["players"]:
+                        player["isAdmin"] = player["id"] == next_admin["id"]
+            await broadcast(room)

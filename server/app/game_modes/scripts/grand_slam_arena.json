@@ -1,0 +1,16 @@
+{
+  "id": "grand-slam-arena", "title": "Grand Slam Arena", "macguffin": "the championship trophy",
+  "intro": "Minutes before the final whistle, the championship trophy vanished from the locked arena vault.",
+  "cast": [
+    {"name": "Riley Rook", "personality": "a relentless sports reporter", "alibi": "Was recording the crowd chant from the press box.", "fact": "Riley once covered a match under a false name."},
+    {"name": "Jordan Vale", "personality": "a superstitious team captain", "alibi": "Was retaping a lucky wristband in the locker room.", "fact": "Jordan knows the vault combination."},
+    {"name": "Morgan Pike", "personality": "an exacting groundskeeper", "alibi": "Was checking the tunnel lights before halftime.", "fact": "Morgan has a spare key to every service door."},
+    {"name": "Avery Lane", "personality": "a charming mascot handler", "alibi": "Was repairing the mascot head backstage.", "fact": "Avery is allergic to the arena fog machine."},
+    {"name": "Casey Flint", "personality": "a nervous ticket inspector", "alibi": "Was scanning late arrivals at Gate C.", "fact": "Casey saw someone leave the vault corridor."},
+    {"name": "Taylor Moss", "personality": "a calm stadium medic", "alibi": "Was restocking the first-aid room.", "fact": "Taylor can identify the trophy polish by smell."},
+    {"name": "Quinn Park", "personality": "a boastful former champion", "alibi": "Was signing programmes by the sponsor wall.", "fact": "Quinn has a large unpaid betting debt."},
+    {"name": "Skyler Dean", "personality": "a meticulous arena electrician", "alibi": "Was resetting a breaker near the scoreboard.", "fact": "Skyler disabled a camera earlier that day."},
+    {"name": "Rowan Bell", "personality": "an eager junior coach", "alibi": "Was reviewing plays in the video room.", "fact": "Rowan argued with the captain before the match."},
+    {"name": "Emery Cole", "personality": "a polished event manager", "alibi": "Was greeting sponsors in the atrium.", "fact": "Emery approved the vault's maintenance schedule."}
+  ]
+}
