@@ -26,7 +26,7 @@ imposter-object/
 
 - **React client:** renders lobby, word assignment, clue submission, discussion, voting, and results; sends JSON messages over a WebSocket.
 - **Python + FastAPI:** owns authoritative room state, validates transitions, broadcasts updates, and invokes the selected game mode.
-- **PostgreSQL:** stores completed game results in `game_results` as JSONB. You can create and inspect the database with pgAdmin. Active rooms remain in memory for low-latency play; use Redis when horizontal scaling is needed.
+- **SQLite:** stores completed game results and leaderboard rows in a local SQLite database. Active rooms remain in memory for low-latency play; use a shared database or Redis when horizontal scaling is needed.
 - **Game mode contract:** each mode owns round creation, private assignments, action validation, and result resolution. The registry and `/games` endpoint expose modes without changing lobby transport code.
 
 ### Game extension map
@@ -57,7 +57,7 @@ Use a common score ledger so every game contributes to the leaderboard: `deducti
 
 ## Run
 
-Prerequisites: Node.js 20+, Python 3.11+, and PostgreSQL. pgAdmin is optional and provides a graphical way to create and inspect the database.
+Prerequisites: Node.js 20+ and Python 3.11+. SQLite is included with Python.
 
 ```bash
 npm install
@@ -66,6 +66,13 @@ copy server\\.env.example server\\.env
 npm run dev
 ```
 
-In pgAdmin, create a database named `imposter_object`, then set the PostgreSQL username and password in `server/.env`. The FastAPI server creates the `game_results` table on startup. The client runs at http://localhost:5173 and connects to the WebSocket server at http://localhost:3001/ws.
+For backend tests, install the development requirements and run:
+
+```bash
+python -m pip install -r server\\requirements-dev.txt
+python -m pytest server/tests -q
+```
+
+The FastAPI server creates `imposter_game.db` and its tables on startup. The client runs at http://localhost:5173 and connects to the WebSocket server at http://localhost:3001/ws.
 
 Open multiple browser windows, join the same room code, and use 4-10 players to start a round.
