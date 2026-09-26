@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { avatars } from './data/gameData';
 import WelcomeScreen from './components/screens/WelcomeScreen';
 import RoomScreen from './components/screens/RoomScreen';
 
@@ -13,7 +12,6 @@ export default function App({ socket }) {
   const [form, setForm] = useState(() => ({
     code: new URLSearchParams(window.location.search).get('room')?.toUpperCase() || '',
     name: '',
-    avatar: avatars[0],
     playerId: sessionStorage.getItem('imposter-tab-id') || crypto.randomUUID(),
   }));
 

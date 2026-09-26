@@ -1,5 +1,4 @@
 import React from 'react';
-import { avatars } from '../../data/gameData';
 import ThemePicker from '../ThemePicker';
 
 export default function WelcomeScreen({
@@ -88,22 +87,6 @@ export default function WelcomeScreen({
                 />
               </label>
             )}
-
-            <div className="avatar-picker">
-              <span>Choose your token</span>
-              <div>
-                {avatars.map((avatar) => (
-                  <button
-                    type="button"
-                    className={form.avatar === avatar ? 'selected' : ''}
-                    onClick={() => setForm({ ...form, avatar })}
-                    key={avatar}
-                  >
-                    {avatar[0].toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <button className="primary">
               {entryMode === 'join' ? 'Join the room' : 'Create the room'}
