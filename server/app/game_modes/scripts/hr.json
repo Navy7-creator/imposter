@@ -1,0 +1,67 @@
+{
+  "id": "heated-rivalry",
+  "title": "Heated Rivalry",
+  "macguffin": "the championship playoff ring",
+  "intro": "Hours before the deciding game of the professional hockey finals, the multi-million dollar diamond championship playoff ring vanished from the team captain's locked locker.",
+  "setting": "A high-stakes arena locker room during an intense playoff series. A heavy blizzard has sealed the arena exits, trapping the rival players and staff inside.",
+  "timeline": [
+    "The playoff ring was secured in the captain's locker before the morning skate.",
+    "A heated shouting match broke out in the private hallway near the equipment room.",
+    "The arena backup power flickered, causing the security cameras to loop for sixty seconds.",
+    "The empty ring box was discovered right as media interviews began."
+  ],
+  "evidence": [
+    {"name": "Skate guard", "detail": "A cracked plastic skate guard was left abandoned near the locker room entrance."},
+    {"name": "Ice melt", "detail": "A puddle of fresh ice melt tracked across the rubber floor tiles."},
+    {"name": "Access log", "detail": "The master keycard log showed an entry override during the power flicker."},
+    {"name": "Tape roll", "detail": "A strip of colored hockey stick tape was stuck to the inside of the empty vault."}
+  ],
+  "revelations": [
+    "The theft required intimate knowledge of the locker room combination lock.",
+    "The shouting match was intentionally staged to distract the security detail.",
+    "At least one player's alibi conceals an unapproved meeting with a rival team representative."
+  ],
+  "endings": {
+    "culpritsCaught": "The championship ring is recovered from a duffel bag, and the locker room conspirators are exposed.",
+    "culpritsEscape": "The blizzard clears, and the culprit boards the team bus with the ring before anyone can prove their guilt."
+  },
+  "dialoguePrompts": [
+    "Ask the captain who knew the locker combination before the theft.",
+    "Force the rival player and the journalist to compare their hallway timelines.",
+    "Challenge the trainer about the jammed medical-wing door.",
+    "Ask who started the shouting match and who gained time from it."
+  ],
+  "tasks": [
+    {"name": "Map the locker room", "detail": "Mark every route from the captain's locker to the service tunnel."},
+    {"name": "Match the tape", "detail": "Compare the colored tape in the vault with each player's equipment."},
+    {"name": "Check the bus bags", "detail": "Search for hidden weight or a missing ring box before the team leaves."},
+    {"name": "Rewind the camera loop", "detail": "Find the moment when the security feed repeated instead of recording live."
+    }
+  ],
+  "conflicts": [
+    "The captain says the locker was locked, but the key was left in plain sight.",
+    "The backup player saw someone in the tunnel but refuses to name them.",
+    "The journalist has a recording that begins after the shouting match, not before it.",
+    "The coach blames the rival team while hiding an unpaid betting debt."
+  ],
+  "secretObjectives": [
+    "Keep your contract negotiation hidden until the ring is found.",
+    "Protect a teammate who helped you enter the equipment room.",
+    "Make the rival star look guilty without being caught lying.",
+    "Leave the arena with the ring inside a team bag."
+  ],
+  "twists": [
+    "The ring box was opened before it reached the captain's locker.",
+    "The ice melt came from a cooler, not the practice rink.",
+    "The security loop was triggered by a staff key that should have been destroyed."
+  ],
+  "cast": [
+    {"name": "Shane Hollander", "personality": "a golden-boy team captain under immense pressure", "alibi": "Was reviewing game tape in the coaches' quiet office.", "fact": "Shane left the locker room unlocked for five minutes."},
+    {"name": "Ilya Rozanov", "personality": "a fiercely competitive rival star player", "alibi": "Was testing new stick curves out on the private practice ice.", "fact": "Ilya was seen arguing with the general manager earlier."},
+    {"name": "Rachel Rozanov", "personality": "a sharp-tongued sports journalist", "alibi": "Was setting up recording gear in the media press box.", "fact": "Rachel knows about Shane's secret contract negotiations."},
+    {"name": "Bobby Hackett", "personality": "a veteran enforcer nearing retirement", "alibi": "Was taping his ankles in the trainer's room with the staff.", "fact": "Bobby has a spare master key to the equipment storage."},
+    {"name": "Kip Grady", "personality": "an anxious rookie backup player", "alibi": "Was restocking energy drinks in the kitchenette.", "fact": "Kip saw someone running down the service tunnel."},
+    {"name": "Dr. Henderson", "personality": "the team's unflappable head physiotherapist", "alibi": "Was treating a groin strain in the medical wing.", "fact": "The medical wing door was jammed shut during the blackout."},
+    {"name": "Liam Connor", "personality": "an aggressive assistant coach", "alibi": "Was drawing up power-play drills on the whiteboard.", "fact": "Liam has heavy debts from offshore sports betting."}
+  ]
+}

@@ -71,12 +71,4 @@ GAME_CATALOG = [
         "maxPlayers": 10,
         "phaseEvents": ["round:statements", "round:vote"],
     },
-    {
-        "id": "mafia-mystery",
-        "name": "Mafia Mystery",
-        "description": "Solve a scripted case with hidden roles, cue cards, and night actions.",
-        "minPlayers": 4,
-        "maxPlayers": 10,
-        "phaseEvents": ["round:mafia-night", "round:mafia-start-vote", "round:mafia-vote"],
-    },
 ]

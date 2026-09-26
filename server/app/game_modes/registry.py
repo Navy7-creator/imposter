@@ -1,4 +1,4 @@
-from . import aware_imposter, drawing_imposter, guess_number, guess_the_lie, mafia_mystery, never_say_do, planned_modes, unaware_imposter
+from . import aware_imposter, drawing_imposter, guess_number, guess_the_lie, never_say_do, planned_modes, unaware_imposter
 
 MODES = {
     "aware-imposter": aware_imposter,
@@ -7,7 +7,6 @@ MODES = {
     "never-say-do": never_say_do,
     "drawing-imposter": drawing_imposter,
     "guess-the-lie": guess_the_lie,
-    "mafia-mystery": mafia_mystery,
     "word-spy": planned_modes,
     "emoji-clues": planned_modes,
     "quick-debate": planned_modes,

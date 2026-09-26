@@ -1,6 +1,57 @@
 {
   "id": "grand-slam-arena", "title": "Grand Slam Arena", "macguffin": "the championship trophy",
   "intro": "Minutes before the final whistle, the championship trophy vanished from the locked arena vault.",
+  "setting": "A sold-out stadium during the championship final. A storm has cut the arena's outside power, trapping the cast inside until the backup generators stabilize.",
+  "timeline": [
+    "The trophy was displayed in the vault before the second half began.",
+    "A brief power surge disabled the vault camera for ninety seconds.",
+    "The vault alarm reported a valid access code, but no exit alarm was triggered.",
+    "The trophy case was found empty just before the final whistle."
+  ],
+  "evidence": [
+    {"name": "Camera gap", "detail": "The press-box camera lost its feed during the power surge."},
+    {"name": "Polish trail", "detail": "A faint line of trophy polish leads from the vault toward the service tunnel."},
+    {"name": "Access log", "detail": "The vault opened with a valid code belonging to someone on the arena staff."},
+    {"name": "Wet footprint", "detail": "A muddy footprint was found beside the emergency generator."}
+  ],
+  "revelations": [
+    "The theft required access to both the vault and the service tunnel.",
+    "The camera blackout was deliberate rather than a complete arena outage.",
+    "At least one alibi in the cast is technically true but leaves out an important detail."
+  ],
+  "endings": {
+    "culpritsCaught": "The trophy is recovered from the service tunnel, and the arena staff explain how the camera gap was created.",
+    "culpritsEscape": "The final whistle sounds while the trophy remains missing, and the culprit disappears into the evacuation crowd."
+  },
+  "dialoguePrompts": [
+    "Ask the person near the emergency generator why their shoes are wet.",
+    "Make the captain explain who else knows the vault combination.",
+    "Challenge the camera expert to describe the exact ninety-second blackout.",
+    "Have the ticket inspector identify the person seen leaving the vault corridor."
+  ],
+  "tasks": [
+    {"name": "Rebuild the camera feed", "detail": "Use the press-box clock and scoreboard time to find the missing ninety seconds."},
+    {"name": "Trace the polish", "detail": "Follow the trophy polish trail and decide whether it was planted."},
+    {"name": "Check the service keys", "detail": "Compare the groundskeeper's key ring with the tunnel lock."},
+    {"name": "Secure the final whistle", "detail": "Keep the trophy search active until the official ending signal."}
+  ],
+  "conflicts": [
+    "The electrician claims the blackout was accidental, but the camera loop was too precise.",
+    "The former champion has a betting debt and says the trophy means nothing to them.",
+    "The medic can identify the polish but refuses to say whose gloves smelled of it.",
+    "The ticket inspector saw a figure, but the description changes each time."
+  ],
+  "secretObjectives": [
+    "Recover the trophy for the team without exposing your own tunnel meeting.",
+    "Make the captain look guilty before the final whistle.",
+    "Protect the person who helped you access the service corridor.",
+    "Convince everyone that the camera evidence was corrupted by the storm."
+  ],
+  "twists": [
+    "The trophy was moved twice, and the polish trail points to the first hiding place.",
+    "The camera loop was created using a maintenance tablet, not the scoreboard controls.",
+    "The person who reported the empty case had already touched the trophy."
+  ],
   "cast": [
     {"name": "Riley Rook", "personality": "a relentless sports reporter", "alibi": "Was recording the crowd chant from the press box.", "fact": "Riley once covered a match under a false name."},
     {"name": "Jordan Vale", "personality": "a superstitious team captain", "alibi": "Was retaping a lucky wristband in the locker room.", "fact": "Jordan knows the vault combination."},

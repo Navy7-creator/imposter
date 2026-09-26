@@ -1,0 +1,65 @@
+{
+  "id": "business-proposal",
+  "title": "Business Proposal: After-Hours Auditing",
+  "macguffin": "the confidential merger contract containing a fatal corporate loophole",
+  "intro": "Ten minutes before the board signs off on a high-stakes multi-billion dollar acquisition, the physical master contract vanishes from the locked executive suite safe.",
+  "setting": "A sleek, rain-slicked corporate skyscraper in Seoul after midnight. The biometric elevators have locked down due to a system breach, trapping the entire elite strategy team inside.",
+  "timeline": [
+    "The contract was verified and placed in the executive safe before the board meeting adjourned.",
+    "A sudden power brownout triggered a thirty-second reset on the office floor's security cameras.",
+    "The executive safe registered a manual biometric override using an authorized managing director's credential.",
+    "The empty leather folio was discovered right as the CEO returned to sign the papers."
+  ],
+  "evidence": [
+    {"name": "Designer button", "detail": "A pearl cufflink from an exclusive custom suit jacket was found jammed in the safe's hinge."},
+    {"name": "Coffee stain", "detail": "A spilled cup of caramel macchiato dripped across the edge of the master blueprint desk."},
+    {"name": "Access log", "detail": "The digital elevator log shows a restricted override code entered from the basement floor."},
+    {"name": "Shredded memo", "detail": "Fragments of a handwritten resignation letter were discovered in the lobby recycling bin."}
+  ],
+  "revelations": [
+    "The theft required both the executive safe combination and a timed distraction in the lobby.",
+    "The power brownout was triggered intentionally from the internal building management terminal.",
+    "At least one alibi completely masks a secret double-life meeting held in the underground parking garage."
+  ],
+  "endings": {
+    "culpritsCaught": "The confidential contract is recovered from a locked filing cabinet, and the corporate saboteurs are publicly exposed to the board.",
+    "culpritsEscape": "The morning sun rises, the lockdown lifts, and the culprit slips away into the corporate rush hour traffic with the missing leverage."
+  },
+  "dialoguePrompts": [
+    "Who had a reason to delay the merger, and who benefits if the board never signs?",
+    "Ask the person with the strongest alibi to name the last person they saw.",
+    "Confront the person connected to the elevator override about the basement log.",
+    "Demand that two witnesses compare their stories about the brownout."
+  ],
+  "tasks": [
+    {"name": "Reconstruct the timeline", "detail": "Place the brownout, safe override, and elevator entry in the correct order."},
+    {"name": "Audit the access log", "detail": "Match the override credential to a person and identify who could have borrowed it."},
+    {"name": "Recover the torn memo", "detail": "Piece together the resignation fragments and decide who was being threatened."},
+    {"name": "Protect the contract", "detail": "Move the recovered contract to a secure location before the next vote."}
+  ],
+  "conflicts": [
+    "The CEO claims the safe was never opened, but the access log proves otherwise.",
+    "The chief of staff knows the override password but says it was changed last week.",
+    "The person with the coffee stain says they never entered the blueprint room.",
+    "Two witnesses remember the lobby distraction differently."
+  ],
+  "secretObjectives": [
+    "Convince the board to postpone the merger without being identified as the saboteur.",
+    "Keep your secret meeting in the parking garage hidden until the final vote.",
+    "Make another player look responsible for the brownout.",
+    "Find the contract and remove one page before it reaches the board."
+  ],
+  "twists": [
+    "The contract was stolen before the brownout, and the blackout was staged to hide the timing.",
+    "The resignation letter was written by someone who never intended to resign.",
+    "The elevator override was entered by an authorized credential copied from a photo."
+  ],
+  "cast": [
+    {"name": "Kang Tae-mu", "personality": "a notoriously cold, perfectionist CEO obsessed with efficiency", "alibi": "Was reviewing quarterly financial spreadsheets in his private corner office.", "fact": "Tae-mu left his master office key on his desk during the hour of the theft."},
+    {"name": "Shin Ha-ri", "personality": "a brilliant, overworked senior researcher living a chaotic double life", "alibi": "Was frantically running food-tasting reports in the corporate cafeteria kitchen.", "fact": "Ha-ri was seen swapping ID badges with someone in the stairwell."},
+    {"name": "Cha Sung-hoon", "personality": "a loyal, smooth-talking chief of staff who misses nothing", "alibi": "Was coordinating security protocols with the night guard team on floor 10.", "fact": "Sung-hoon knows the exact password to the executive safe override."},
+    {"name": "Jin Young-seo", "personality": "a rebellious chaebol heiress hiding from an arranged marriage", "alibi": "Was hiding in the marketing stockroom dodging a phone call from her father.", "fact": "Young-seo has a spare keycard to the executive elevators."},
+    {"name": "Director Lee", "personality": "a scheming board member plotting a hostile corporate takeover", "alibi": "Was smoking a cigar by the emergency exit balcony in the rain.", "fact": "Director Lee's personal account received a massive anonymous wire transfer."},
+    {"name": "Secretary Gye", "personality": "a bubbly office gossip who tracks every piece of corporate drama", "alibi": "Was organizing catering receipts at the main lobby front desk.", "fact": "Secretary Gye witnessed someone tampering with the fuse box before the lights went out."}
+  ]
+}

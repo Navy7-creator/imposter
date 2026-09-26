@@ -1,0 +1,32 @@
+{
+  "id": "unique-script-id",
+  "title": "Story title",
+  "macguffin": "The missing object or central mystery",
+  "intro": "The opening situation for the case.",
+  "cast": [
+    {
+      "name": "Character One",
+      "personality": "A short personality description",
+      "alibi": "What this character says they were doing",
+      "fact": "A private fact or clue about this character"
+    }
+  ],
+  "setting": "Where and when the story takes place.",
+  "timeline": [
+    "Important event one.",
+    "Important event two."
+  ],
+  "evidence": [
+    {
+      "name": "Evidence name",
+      "detail": "What players discover."
+    }
+  ],
+  "revelations": [
+    "A hidden truth revealed during the investigation."
+  ],
+  "endings": {
+    "culpritsCaught": "What happens if the culprits lose.",
+    "culpritsEscape": "What happens if the culprits win."
+  }
+}

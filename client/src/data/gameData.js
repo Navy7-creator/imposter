@@ -14,7 +14,6 @@ export const games = [
   ['never-say-do', 'Never Say/Do', 'Decide whether secret statements are true or false.'],
   ['drawing-imposter', 'Drawing Imposter', 'Draw a prompt while one player gets a different prompt.'],
   ['guess-the-lie', 'Guess the Lie', 'Find the lie hidden among three statements.'],
-  ['mafia-mystery', 'Mafia Mystery', 'Use roles, night actions, and elimination votes.'],
 ];
 
 export const gameIcons = {
@@ -24,7 +23,6 @@ export const gameIcons = {
   'never-say-do': '!',
   'drawing-imposter': '✎',
   'guess-the-lie': '◇',
-  'mafia-mystery': '♠',
 };
 
 export const themes = [

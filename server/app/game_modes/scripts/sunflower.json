@@ -1,0 +1,65 @@
+{
+  "id": "sunflower-kindergarten",
+  "title": "Sunflower Kindergarten Snack Heist",
+  "macguffin": "the precious box of choco-bee snacks",
+  "intro": "Ten minutes before the end-of-week reward, the class's single, prized box of choco-bee snacks vanished from the teacher's desk drawer.",
+  "setting": "Sunflower Kindergarten classroom during rainy nap time. The classroom door is locked from the outside, keeping everyone trapped until the snacks are returned.",
+  "timeline": [
+    "The choco-bee snack box was placed safely in the teacher's desk drawer before nap time.",
+    "A soft squeak and rustling noise came from the front of the room while everyone pretended to sleep.",
+    "The desk drawer was left slightly ajar with a single wrapper left behind.",
+    "The empty snack box was discovered right as the nap-time bell rang."
+  ],
+  "evidence": [
+    {"name": "Sticky smudge", "detail": "A smear of sweet chocolate syrup is smeared across the handle of the desk drawer."},
+    {"name": "Blanket trail", "detail": "A small blue nap-time blanket was dragged across the reading rug."},
+    {"name": "Open latch", "detail": "The class hamster cage was found unlatched during the incident."},
+    {"name": "Crayon mark", "detail": "A blue wax crayon mark was left pressing against the snack log sheet."}
+  ],
+  "revelations": [
+    "The theft required bypassing the squeaky floorboard right in front of the teacher's desk.",
+    "The classroom door was never opened during the entire nap-time window.",
+    "At least one alibi completely hides the fact that they were awake during nap time."
+  ],
+  "endings": {
+    "culpritsCaught": "The missing choco-bee snacks are recovered from a cubby, and the culprits are sentenced to the Thinking Corner.",
+    "culpritsEscape": "Nap time ends in total chaos, and the snacks vanish into tiny backpacks before anyone can prove a thing."
+  },
+  "dialoguePrompts": [
+    "Ask who was awake when the desk drawer squeaked.",
+    "Make the two best friends compare where they were during nap time.",
+    "Ask the teacher why the drawer was left unlocked.",
+    "Question the hamster's keeper about the open cage latch."
+  ],
+  "tasks": [
+    {"name": "Follow the wrapper", "detail": "Match the wrapper smell and crumbs to the correct cubby."},
+    {"name": "Rebuild nap time", "detail": "Place the squeak, blanket trail, and bell in the correct order."},
+    {"name": "Guard the snack box", "detail": "Keep the recovered snacks safe while everyone argues about who took them."},
+    {"name": "Inspect the cage", "detail": "Decide whether the hamster escaped by accident or was used as a distraction."}
+  ],
+  "conflicts": [
+    "One child says nobody was awake, but their drawing has a fresh chocolate mark.",
+    "The teacher's alibi leaves exactly two minutes unaccounted for.",
+    "The blue blanket belongs to one child but was found near another child's cubby.",
+    "The hamster may have moved the wrapper, making one clue unreliable."
+  ],
+  "secretObjectives": [
+    "Protect your best friend even if the story becomes confusing.",
+    "Get the snacks back without admitting you were awake.",
+    "Convince everyone the hamster caused the mess.",
+    "Trade one clue for an extra snack before the final bell."
+  ],
+  "twists": [
+    "The snack box was hidden before nap time as part of a secret sharing plan.",
+    "The wrapper belongs to yesterday's snack, not today's box.",
+    "The teacher moved the box earlier and forgot where it was placed."
+  ],
+  "cast": [
+    {"name": "Bo", "personality": "a class troublemaker who is always hungry", "alibi": "Was in the sandbox the whole time, ask anyone!", "fact": "Nana was seen near the teacher's desk during nap time."},
+    {"name": "Nana", "personality": "Bo's best friend and a terrible liar", "alibi": "Went to get a nap-time blanket from the desk area, nothing else!", "fact": "Mimi has chocolate on her sleeve."},
+    {"name": "Mimi", "personality": "a class president very serious about justice", "alibi": "Was organizing the crayon box like every day at that time.", "fact": "Bo asked to borrow snack money yesterday."},
+    {"name": "Teo", "personality": "a new kid still learning everyone's names", "alibi": "Does not really know where they were, getting lost easily here.", "fact": "The teacher left the drawer unlocked by accident."},
+    {"name": "Miss Hana", "personality": "a patient and flustered teacher", "alibi": "Stepped out to answer the office phone for two minutes.", "fact": "Nana never even likes choco-bee snacks."},
+    {"name": "Pip", "personality": "an adventurous class hamster", "alibi": "N/A", "fact": "Pip's cage was mysteriously open that day."}
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "id": "starlight-afterparty",
+  "title": "Starlight Afterparty",
+  "macguffin": "the limited-edition holographic light-stick prototypes",
+  "intro": "Backstage after the comeback showcase, the priceless holographic light-stick prototypes vanished from the merch vault.",
+  "setting": "The fictional idol group LUNVIA's private backstage area. Everyone at the afterparty is trapped by security lockdown until the culprit is found.",
+  "timeline": [
+    "The prototypes were secured in the vault before the showcase finale.",
+    "The vault alarm triggered right as the backstage cameras experienced a brief glitch.",
+    "A valid master override code was entered into the vault terminal.",
+    "The empty display case was discovered during the post-show celebration."
+  ],
+  "evidence": [
+    {"name": "Camera glitch", "detail": "The vault hallway camera feed cut out for exactly two minutes."},
+    {"name": "Glitter trail", "detail": "A smear of stage glitter leads from the merch vault toward the green room."},
+    {"name": "Access log", "detail": "The vault terminal accepted a credential linked to management."},
+    {"name": "Dropped phone charger", "detail": "A branded phone charger was found wedged beneath the vault door frame."}
+  ],
+  "revelations": [
+    "The theft required both inside knowledge of the vault code and a timed distraction.",
+    "The camera glitch was triggered locally from the back office terminal.",
+    "At least one alibi completely ignores the ninety-second blackout window."
+  ],
+  "endings": {
+    "culpritsCaught": "The holographic prototypes are recovered from a hidden locker, and the management security breach is fully exposed.",
+    "culpritsEscape": "The final alarm clears, and the culprits slip away into the cheering fan crowd outside."
+  },
+  "dialoguePrompts": [
+    "Ask who knew the master override code before the showcase.",
+    "Make the dancer explain why they needed a phone charger from the vault.",
+    "Compare the livestream timestamp with the camera glitch.",
+    "Ask security who ordered the break during the exact blackout window."
+  ],
+  "tasks": [
+    {"name": "Verify the livestream", "detail": "Check whether the dressing-room stream proves a location or only proves a video was playing."},
+    {"name": "Follow the glitter", "detail": "Track the stage glitter from the vault and identify who wore the matching costume."},
+    {"name": "Recover the charger", "detail": "Identify whose charger was found under the vault door."},
+    {"name": "Protect the comeback", "detail": "Keep the prototype theft secret until the group finishes the final performance."
+    }
+  ],
+  "conflicts": [
+    "The manager says the override code was private, but three people knew it.",
+    "The security guard scheduled a break during the only camera glitch.",
+    "The photographer's laptop metadata disagrees with the time of the green-room photos.",
+    "The superfan reached the vault but claims they never touched the door."
+  ],
+  "secretObjectives": [
+    "Recover the prototypes before the label discovers the breach.",
+    "Protect a member whose contract dispute could end the group.",
+    "Make the manager take the blame for the missing merch.",
+    "Sell the prototypes after the lockdown without revealing your buyer."
+  ],
+  "twists": [
+    "The prototypes were removed from the display case during rehearsal, not the afterparty.",
+    "The camera glitch was caused by a charger plugged into the wrong terminal.",
+    "The glitter trail was planted to frame the lead stylist."
+  ],
+  "cast": [
+    {"name": "Rio", "personality": "a relentless lead stylist", "alibi": "Was steaming outfits in the wardrobe room until the vault alarm went off.", "fact": "Rio saw Dae near the vault around 9pm."},
+    {"name": "Dae", "personality": "an ambitious backup dancer", "alibi": "Went to the vault to grab a phone charger, then left immediately.", "fact": "Min was arguing with the manager earlier tonight."},
+    {"name": "Min", "personality": "a high-strung group manager", "alibi": "Was on a call with the label about the merch shipment numbers.", "fact": "Rio has been complaining about being underpaid."},
+    {"name": "Soo", "personality": "the youngest member of LUNVIA", "alibi": "Was doing a livestream from the dressing room the whole time.", "fact": "Jin left the party early without saying goodbye."},
+    {"name": "Jin", "personality": "a sasaeng-adjacent superfan", "alibi": "Got lost trying to find the bathroom and ended up near the vault.", "fact": "Rio was arguing with someone on the phone about money."},
+    {"name": "Ara", "personality": "a focused staff photographer", "alibi": "Was reviewing photos on a laptop in the green room.", "fact": "Soo seemed nervous when the alarm went off."},
+    {"name": "Byul", "personality": "a stressed sound engineer", "alibi": "Was troubleshooting a mic feedback issue during the exact window.", "fact": "Dae has debt from a bad investment."},
+    {"name": "Chan", "personality": "a tired security guard", "alibi": "Scheduled a break right when the vault camera cut out.", "fact": "Min asked Chan to look the other way earlier that night."}
+  ]
+}

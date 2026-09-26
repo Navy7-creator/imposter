@@ -4,7 +4,6 @@ import GuessNumberGame from './guessNumber';
 import NeverSayDoGame from './neverSayDo';
 import DrawingImposterGame from './drawingImposter';
 import GuessTheLieGame from './guessTheLie';
-import MafiaMysteryGame from './mafiaMystery';
 import { games } from '../../data/gameData';
 
 const makeGameMode = (id, title, description, Icon) => ({
@@ -21,7 +20,6 @@ export const gameModeRegistry = {
   'never-say-do': makeGameMode('never-say-do', games[3][1], games[3][2], NeverSayDoGame),
   'drawing-imposter': makeGameMode('drawing-imposter', games[4][1], games[4][2], DrawingImposterGame),
   'guess-the-lie': makeGameMode('guess-the-lie', games[5][1], games[5][2], GuessTheLieGame),
-  'mafia-mystery': makeGameMode('mafia-mystery', games[6][1], games[6][2], MafiaMysteryGame),
 };
 
 export const gameModeList = Object.entries(gameModeRegistry);
