@@ -124,8 +124,8 @@ export default function RoomScreen({
           <Discussion room={room} startVoting={() => emit('round:start-voting')} />
         )}
 
-        {room.phase === 'voting' && room.modeId === 'aware-imposter' && <Voting room={room} vote={vote} />}
-        {room.phase === 'voting' && room.modeId === 'unaware-imposter' && <Voting room={room} vote={vote} />}
+        {room.phase === 'voting' && room.modeId === 'aware-imposter' && <Voting room={room} currentPlayer={currentPlayer} vote={vote} error={error} />}
+        {room.phase === 'voting' && room.modeId === 'unaware-imposter' && <Voting room={room} currentPlayer={currentPlayer} vote={vote} error={error} />}
         {room.phase === 'results' && <Results results={results} room={room} />}
       </section>
     </main>

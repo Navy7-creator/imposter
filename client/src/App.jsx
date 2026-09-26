@@ -42,8 +42,8 @@ export default function App({ socket }) {
           setError(response.error);
         } else {
           setError('');
-          resolve(response);
         }
+        resolve(response);
       });
     });
 

@@ -85,6 +85,7 @@ def public_room(room):
         ],
         "descriptions": descriptions,
         "votesSubmitted": len(round_state.get("votes", {})) if round_state and isinstance(round_state.get("votes", {}), dict) else 0,
+        "votedPlayerIds": list(round_state.get("votes", {}).keys()) if round_state and isinstance(round_state.get("votes", {}), dict) else [],
         "guessesSubmitted": len(round_state.get("guesses", [])) if round_state and isinstance(round_state.get("guesses", []), list) else 0,
         "statements": statements,
         "answersSubmitted": len(round_state.get("answers", {})) if round_state and isinstance(round_state.get("answers", {}), dict) else 0,

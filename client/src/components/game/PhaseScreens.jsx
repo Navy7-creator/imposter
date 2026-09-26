@@ -59,7 +59,7 @@ export function Discussion({ room, startVoting }) {
   );
 }
 
-export function Voting({ room, vote }) {
+export function Voting({ room, currentPlayer, vote, error }) {
   return (
     <div className="content">
       <p className="eyebrow">Cast your vote</p>
@@ -67,10 +67,10 @@ export function Voting({ room, vote }) {
 
       <div className="vote-list">
         {room.players.map((player) => (
-          <button key={player.id} onClick={() => vote(player.id)}>
+          <button key={player.id} onClick={() => vote(player.id)} disabled={player.id === currentPlayer?.id}>
             <span className="avatar">{player.avatar[0].toUpperCase()}</span>
             <strong>{player.name}</strong>
-            <span>Vote →</span>
+            <span className="vote-status">{room.votedPlayerIds?.includes(player.id) ? '✓' : 'Vote →'}</span>
           </button>
         ))}
       </div>
@@ -78,6 +78,7 @@ export function Voting({ room, vote }) {
       <p className="counter">
         {room.votesSubmitted} / {room.players.length} votes in
       </p>
+      {error && <p className="error">{error}</p>}
     </div>
   );
 }
