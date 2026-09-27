@@ -99,6 +99,17 @@ def finalize_result(room, result):
     return result
 
 
+async def broadcast_never_say_do_results(room, result):
+    personal_results = result.pop("personalResults", {})
+    finalize_result(room, result)
+    await broadcast(room)
+    await broadcast(room, "round:results", result)
+    for player_id, player_result in personal_results.items():
+        websocket = connections.get(room["code"], {}).get(player_id)
+        if websocket:
+            await send_event(websocket, "round:personal-results", player_result)
+
+
 async def handle_event(websocket, event, payload):
     room_code = websocket.scope.get("room_code")
     player_id = websocket.scope.get("player_id")
@@ -194,17 +205,20 @@ async def handle_event(websocket, event, payload):
         else:
             await broadcast(room)
     elif event == "round:statement" and room["modeId"] == "never-say-do":
+        if room["phase"] != "statements":
+            raise ValueError("Statements are no longer open")
         mode.submit_statement(room["round"], player_id, payload.get("statement", ""), payload.get("isTrue", False))
         if len(room["round"]["statements"]) == len(active_players(room)):
             room["phase"] = "voting"
         await broadcast(room)
     elif event == "round:answer" and room["modeId"] == "never-say-do":
-        mode.submit_answer(room["round"], player_id, payload.get("statementId"), payload.get("answer", False))
+        if room["phase"] != "voting":
+            raise ValueError("Voting is not open")
+        mode.submit_answers(room["round"], player_id, payload.get("answers"))
         if len(room["round"]["answers"]) == len(active_players(room)):
             room["phase"] = "results"
             result = mode.resolve_round(room["round"])
-            finalize_result(room, result)
-            await broadcast(room, "round:results", result)
+            await broadcast_never_say_do_results(room, result)
         else:
             await broadcast(room)
     elif event == "round:drawing" and room["modeId"] == "drawing-imposter":

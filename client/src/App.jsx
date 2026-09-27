@@ -7,6 +7,7 @@ export default function App({ socket }) {
   const [room, setRoom] = useState(null);
   const [assignment, setAssignment] = useState(null);
   const [results, setResults] = useState(null);
+  const [personalResults, setPersonalResults] = useState({});
 
   // Player form + session values used before joining a room.
   const [form, setForm] = useState(() => ({
@@ -32,6 +33,7 @@ export default function App({ socket }) {
     socket.on('room:updated', setRoom);
     socket.on('round:assignment', setAssignment);
     socket.on('round:results', setResults);
+    socket.on('round:personal-results', setPersonalResults);
   }, [socket]);
 
 
@@ -143,6 +145,7 @@ export default function App({ socket }) {
       room={room}
       assignment={assignment}
       results={results}
+      personalResults={personalResults}
       description={description}
       setDescription={setDescription}
       error={error}

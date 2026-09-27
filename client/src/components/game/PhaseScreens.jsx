@@ -137,7 +137,8 @@ export function NeverSayDoStatementScreen({ assignment, room, emit }) {
   return (
     <div className="content">
       <p className="eyebrow">Never say/do</p>
-      <h1>{assignment?.prompt} about <em>{target?.name}</em></h1>
+      <p className="selected-game">🎯 Your target<br /><strong>{target?.avatar} {target?.name}</strong></p>
+      <h1><em>{target?.name}</em> {assignment?.prompt}...</h1>
       <p className="subtle">Write a statement to test the room.</p>
 
       <textarea
@@ -167,8 +168,10 @@ export function NeverSayDoStatementScreen({ assignment, room, emit }) {
 }
 
 export function NeverSayDoAnswerScreen({ room, emit }) {
-  const [selectedStatementId, setSelectedStatementId] = useState('');
-  const [answer, setAnswer] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const statements = room.statements || [];
+  const answered = statements.filter((item) => typeof answers[item.statementId] === 'boolean').length;
 
   return (
     <div className="content">
@@ -176,18 +179,23 @@ export function NeverSayDoAnswerScreen({ room, emit }) {
       <h1>Which statements are true?</h1>
 
       <div className="clues">
-        {room.statements?.map((item) => (
-          <article className={selectedStatementId === item.playerId ? 'selected-game' : ''} key={item.playerId}>
+        {statements.map((item, index) => (
+          <article className="statement-card" key={item.statementId}>
+            <p className="eyebrow">Statement #{index + 1}</p>
             <p>{item.statement}</p>
-            <button className="secondary" onClick={() => setSelectedStatementId(item.playerId)}>Choose this statement</button>
+            <div className="answer-choice">
+              {[true, false].map((value) => (
+                <button key={String(value)} className={answers[item.statementId] === value ? 'selected' : ''} disabled={submitted} onClick={() => setAnswers((current) => ({ ...current, [item.statementId]: value }))}>
+                  {value ? 'True' : 'False'}
+                </button>
+              ))}
+            </div>
           </article>
         ))}
       </div>
-      <div className="answer-choice">
-        <button className={answer === true ? 'selected' : ''} onClick={() => setAnswer(true)} disabled={!selectedStatementId}>True</button>
-        <button className={answer === false ? 'selected' : ''} onClick={() => setAnswer(false)} disabled={!selectedStatementId}>False</button>
-      </div>
-      <button className="primary" onClick={() => emit('round:answer', { statementId: selectedStatementId, answer })} disabled={!selectedStatementId || answer === null}>Submit answer <span>→</span></button>
+      <p className="counter">{answered} / {statements.length} answered</p>
+      <button className="primary" onClick={() => { emit('round:answer', { answers }); setSubmitted(true); }} disabled={submitted || answered !== statements.length}>Submit answers <span>→</span></button>
+      {submitted && <p className="counter">Answers submitted. Waiting for the other players...</p>}
     </div>
   );
 }
@@ -418,7 +426,10 @@ export function MafiaVoteScreen({ room, emit }) {
   return <div className="content"><p className="eyebrow">Mystery Room · Vote</p><h1>Who took <em>{room.script?.macguffin}</em>?</h1><div className="vote-list">{room.players.filter((player) => !player.left && room.alive.includes(player.id)).map((player) => <button key={player.id} onClick={() => emit('round:mafia-vote', { targetId: player.id })}><span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span><strong>{player.name}</strong><span>Vote →</span></button>)}</div><p className="counter">{room.votesSubmitted} / {room.alive.length} votes in</p></div>;
 }
 
-export function Results({ results, room, returnToLobby, playAgain, chooseAnotherGame, exitGame }) {
+export function Results({ results, personalResults, room, returnToLobby, playAgain, chooseAnotherGame, exitGame }) {
+  if (room.modeId === 'never-say-do') {
+    return <NeverSayDoResults results={results} personalResults={personalResults} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />;
+  }
   if (room.modeId === 'mafia-mystery') {
     const culprits = Object.entries(results?.roles || {}).filter(([, role]) => role === 'culprit').map(([id]) => room.players.find((player) => player.id === id)?.name).filter(Boolean);
     return (
@@ -445,6 +456,21 @@ export function Results({ results, room, returnToLobby, playAgain, chooseAnother
       <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
     </div>
   );
+}
+
+function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAnotherGame, exitGame }) {
+  const [index, setIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const statements = results?.statementResults || [];
+  const statement = statements[index];
+  const personal = personalResults?.[statement?.statementId];
+  const finished = index >= statements.length;
+
+  if (finished) {
+    return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} /></div>;
+  }
+
+  return <div className="content"><p className="eyebrow">Statement {index + 1} of {statements.length}</p><h1>{statement.statement}</h1>{!revealed ? <button className="primary" onClick={() => setRevealed(true)}>Reveal answer <span>↓</span></button> : <div className="reveal"><p>Actual answer: <strong>{statement.isTrue ? 'TRUE ✓' : 'FALSE ✓'}</strong></p><p>Your answer: <strong>{personal?.answer ? 'TRUE' : 'FALSE'} {personal?.correct ? '✓' : '✕'}</strong></p><p>{personal?.correct ? '+1 point' : 'No point'}</p><p>Written by: <strong>{room.players.find((player) => player.id === statement.author)?.name || 'Player'}</strong></p><p>Group vote: TRUE {statement.voteDistribution.true} · FALSE {statement.voteDistribution.false}</p><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === statements.length - 1 ? 'Show scores' : 'Next statement'} <span>→</span></button></div>}</div>;
 }
 
 function Scoreboard({ room, scores = {} }) {

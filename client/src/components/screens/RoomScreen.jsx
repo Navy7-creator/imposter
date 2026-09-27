@@ -25,6 +25,7 @@ export default function RoomScreen({
   room,
   assignment,
   results,
+  personalResults,
   description,
   setDescription,
   error,
@@ -137,7 +138,7 @@ export default function RoomScreen({
 
         {room.phase === 'voting' && room.modeId === 'aware-imposter' && <Voting room={room} currentPlayer={currentPlayer} vote={vote} error={error} />}
         {room.phase === 'voting' && room.modeId === 'unaware-imposter' && <Voting room={room} currentPlayer={currentPlayer} vote={vote} error={error} />}
-        {room.phase === 'results' && <Results results={results} room={room} returnToLobby={returnToLobby} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />}
+        {room.phase === 'results' && <Results results={results} personalResults={personalResults} room={room} returnToLobby={returnToLobby} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />}
         {room.phase === 'ended' && (
           <div className="content">
             <p className="eyebrow">Game ended</p>

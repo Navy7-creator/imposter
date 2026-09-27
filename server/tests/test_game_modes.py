@@ -131,7 +131,7 @@ def test_public_room_does_not_expose_never_say_do_truth_values():
         "clueMode": "text",
         "players": [],
         "round": {
-            "statements": [{"playerId": "player-0", "statement": "A hidden claim", "isTrue": True}],
+            "statements": [{"statementId": "statement-0", "authorId": "player-0", "statement": "A hidden claim", "isTrue": True}],
             "answers": {},
         },
         "chat": [],
@@ -140,7 +140,7 @@ def test_public_room_does_not_expose_never_say_do_truth_values():
 
     public_state = public_room(room)
 
-    assert public_state["statements"] == [{"playerId": "player-0", "statement": "A hidden claim"}]
+    assert public_state["statements"] == [{"statementId": "statement-0", "statement": "A hidden claim"}]
 
 
 def test_content_selector_uses_fresh_items_before_repeating():
@@ -264,12 +264,23 @@ def test_never_say_do_round_accepts_all_statements_and_answers():
     round_state = never_say_do.create_round(PLAYERS)
     for index, player in enumerate(PLAYERS):
         never_say_do.submit_statement(round_state, player["id"], f"Statement {index}", index % 2 == 0)
+    statement_ids = [item["statementId"] for item in round_state["statements"]]
     for index, player in enumerate(PLAYERS):
-        never_say_do.submit_answer(round_state, player["id"], PLAYERS[index]["id"], index % 2 == 0)
+        never_say_do.submit_answers(round_state, player["id"], {statement_id: index % 2 == 0 for statement_id in statement_ids})
 
     result = never_say_do.resolve_round(round_state)
-    assert len(result["statements"]) == 4
-    assert len(result["answers"]) == 4
+    assert len(result["statementResults"]) == 4
+    assert len(round_state["answers"]) == 4
+
+
+def test_never_say_do_rejects_incomplete_answers():
+    round_state = never_say_do.create_round(PLAYERS)
+    never_say_do.submit_statement(round_state, PLAYERS[0]["id"], "A statement", True)
+    never_say_do.submit_statement(round_state, PLAYERS[1]["id"], "Another statement", False)
+    statement_id = round_state["statements"][0]["statementId"]
+
+    with pytest.raises(ValueError, match="Answer every statement exactly once"):
+        never_say_do.submit_answers(round_state, PLAYERS[0]["id"], {statement_id: True})
 
 
 def test_guess_the_lie_round_accepts_statements_and_votes():

@@ -125,7 +125,7 @@ def public_room(room):
             ]
         elif isinstance(raw_statements, list):
             statements = [
-                {"playerId": item.get("playerId"), "statement": item.get("statement")}
+                {"statementId": item.get("statementId"), "statement": item.get("statement")}
                 for item in raw_statements
             ]
 
