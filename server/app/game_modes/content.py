@@ -37,11 +37,12 @@ def choose_distinct(items, pool_id):
     return selected, random.choice(alternatives)
 
 
-def choose_imposter_round(players, category_ids, history=None):
+def choose_imposter_round(players, category_ids, history=None, relationships=None):
     history = history or []
+    relationships = set(relationships or [])
     requested_categories = list(dict.fromkeys(category_ids or ["everyday-objects"]))
     pairs = load_content("imposter_pairs.json")["pairs"]
-    candidates = [pair for pair in pairs if pair["category"] in requested_categories]
+    candidates = [pair for pair in pairs if pair["category"] in requested_categories and (not relationships or pair["relationship"] in relationships)]
     words = load_content("imposter_words.json")
     curated_categories = {pair["category"] for pair in candidates}
     for fallback_category in (category for category in requested_categories if category not in curated_categories):

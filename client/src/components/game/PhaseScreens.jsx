@@ -167,6 +167,9 @@ export function NeverSayDoStatementScreen({ assignment, room, emit }) {
 }
 
 export function NeverSayDoAnswerScreen({ room, emit }) {
+  const [selectedStatementId, setSelectedStatementId] = useState('');
+  const [answer, setAnswer] = useState(null);
+
   return (
     <div className="content">
       <p className="eyebrow">Guess the truth</p>
@@ -174,44 +177,137 @@ export function NeverSayDoAnswerScreen({ room, emit }) {
 
       <div className="clues">
         {room.statements?.map((item) => (
-          <article key={item.playerId}>
+          <article className={selectedStatementId === item.playerId ? 'selected-game' : ''} key={item.playerId}>
             <p>{item.statement}</p>
-            <div className="vote-list">
-              <button onClick={() => emit('round:answer', { statementId: item.playerId, answer: true })}>True</button>
-              <button onClick={() => emit('round:answer', { statementId: item.playerId, answer: false })}>False</button>
-            </div>
+            <button className="secondary" onClick={() => setSelectedStatementId(item.playerId)}>Choose this statement</button>
           </article>
         ))}
       </div>
+      <div className="answer-choice">
+        <button className={answer === true ? 'selected' : ''} onClick={() => setAnswer(true)} disabled={!selectedStatementId}>True</button>
+        <button className={answer === false ? 'selected' : ''} onClick={() => setAnswer(false)} disabled={!selectedStatementId}>False</button>
+      </div>
+      <button className="primary" onClick={() => emit('round:answer', { statementId: selectedStatementId, answer })} disabled={!selectedStatementId || answer === null}>Submit answer <span>→</span></button>
     </div>
   );
 }
 
 export function DrawingImposterScreen({ assignment, room, emit }) {
-  const [drawing, setDrawing] = useState('');
+  const [strokes, setStrokes] = useState([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [color, setColor] = useState('#102b3f');
+  const [eraser, setEraser] = useState(false);
 
   return (
     <div className="content">
       <p className="eyebrow">Drawing imposter</p>
       <h1>Your prompt is <em>{assignment?.prompt}</em></h1>
-      <p className="subtle">Write a quick sketch idea or a short drawing clue.</p>
-
-      <textarea
-        value={drawing}
-        onChange={(event) => setDrawing(event.target.value)}
-        maxLength="200"
-        placeholder="Describe the drawing or shape..."
-      />
-
-      <button
-        className="primary"
-        onClick={() => emit('round:drawing', { drawing })}
-        disabled={!drawing.trim()}
-      >
-        Send drawing
-      </button>
+      <p className="subtle">Draw your clue, then submit it when you are ready.</p>
+      <div className="drawing-toolbar" aria-label="Drawing tools">
+        {['#102b3f', '#ef5350', '#ffcf56', '#65e0d2', '#5b8cff', '#ff77b7'].map((option) => (
+          <button type="button" className={`drawing-color ${color === option && !eraser ? 'selected' : ''}`} style={{ background: option }} aria-label={`Use ${option} ink`} key={option} onClick={() => { setColor(option); setEraser(false); }} disabled={submitted} />
+        ))}
+        <button type="button" className={`secondary tool-button ${eraser ? 'selected' : ''}`} onClick={() => setEraser((value) => !value)} disabled={submitted}>Eraser</button>
+        <button type="button" className="secondary tool-button" onClick={() => setStrokes((current) => current.slice(0, -1))} disabled={submitted || !strokes.length}>Undo stroke</button>
+      </div>
+      <DrawingCanvas strokes={strokes} disabled={submitted} color={color} eraser={eraser} onStroke={(stroke) => emit('round:drawing:stroke', { stroke })} setStrokes={setStrokes} />
+      <div className="drawing-actions">
+        <button className="secondary" onClick={() => { setStrokes([]); emit('round:drawing:stroke', { stroke: { type: 'clear' } }); }} disabled={submitted}>Clear</button>
+        <button className="primary" onClick={() => { emit('round:drawing', { drawing: JSON.stringify(strokes) }); setSubmitted(true); }} disabled={submitted || !strokes.length}>Submit drawing <span>→</span></button>
+      </div>
     </div>
   );
+}
+
+function DrawingCanvas({ strokes, setStrokes, onStroke, color = '#102b3f', eraser = false, disabled = false, readOnly = false }) {
+  const canvasRef = React.useRef(null);
+  const activeStroke = React.useRef(null);
+  const strokesRef = React.useRef(strokes);
+  strokesRef.current = strokes;
+
+  const render = React.useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.lineWidth = 4;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    strokesRef.current.forEach((stroke) => {
+      if (!stroke.points.length) return;
+      context.globalCompositeOperation = stroke.erase ? 'destination-out' : 'source-over';
+      context.strokeStyle = stroke.color || '#102b3f';
+      context.beginPath();
+      stroke.points.forEach((point, index) => {
+        const x = point.x * canvas.clientWidth;
+        const y = point.y * canvas.clientHeight;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      });
+      context.stroke();
+    });
+    context.globalCompositeOperation = 'source-over';
+  }, []);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const resize = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
+      canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
+      canvas.getContext('2d').scale(ratio, ratio);
+      render();
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, [render]);
+
+  React.useEffect(() => render(), [render, strokes]);
+
+  const pointFromEvent = (event) => {
+    const bounds = canvasRef.current.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)),
+    };
+  };
+  const move = (event) => {
+    if (!activeStroke.current || disabled || readOnly) return;
+    const point = pointFromEvent(event);
+    setStrokes((current) => current.map((stroke) => stroke.strokeId === activeStroke.current ? { ...stroke, points: [...stroke.points, point] } : stroke));
+    onStroke({ type: 'move', strokeId: activeStroke.current, point });
+  };
+  const end = () => {
+    if (!activeStroke.current) return;
+    onStroke?.({ type: 'end', strokeId: activeStroke.current });
+    activeStroke.current = null;
+  };
+
+  return <canvas ref={canvasRef} className="drawing-canvas" onPointerDown={(event) => {
+    if (disabled || readOnly) return;
+    canvasRef.current.setPointerCapture(event.pointerId);
+    const strokeId = crypto.randomUUID();
+    const point = pointFromEvent(event);
+    activeStroke.current = strokeId;
+    setStrokes((current) => [...current, { strokeId, points: [point] }]);
+    onStroke({ type: 'start', strokeId, point, color, erase: eraser });
+  }} onPointerMove={move} onPointerUp={end} onPointerCancel={end} />;
+}
+
+export function DrawingVotingScreen({ room, currentPlayer, vote }) {
+  return <div className="content"><p className="eyebrow">Drawing imposter · vote</p><h1>Whose drawing is different?</h1><div className="drawing-gallery">{Object.entries(room.drawings || {}).map(([playerId, drawing]) => <div className="drawing-card" key={playerId}><p>{room.players.find((player) => player.id === playerId)?.name || 'Player'}</p><DrawingCanvas strokes={parseDrawing(drawing)} readOnly /><button className="secondary" onClick={() => vote(playerId)} disabled={playerId === currentPlayer?.id}>Vote for this drawing</button></div>)}</div><p className="counter">{room.votesSubmitted} / {room.activePlayerCount || room.players.length} votes in</p></div>;
+}
+
+function parseDrawing(drawing) {
+  try {
+    const parsed = JSON.parse(drawing);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export function GuessTheLieStatementScreen({ room, emit }) {

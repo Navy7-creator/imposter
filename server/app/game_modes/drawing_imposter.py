@@ -1,14 +1,22 @@
 from .content import choose_imposter_round
 
+DRAWING_COLORS = {"#102b3f", "#ef5350", "#ffcf56", "#65e0d2", "#5b8cff", "#ff77b7", "#ffffff"}
+
 
 def create_round(players, category_id="everyday-objects", history=None):
-    selection = choose_imposter_round(players, category_id if isinstance(category_id, list) else [category_id], history)
+    selection = choose_imposter_round(
+        players,
+        category_id if isinstance(category_id, list) else [category_id],
+        history,
+        relationships=("confusing", "deceptively_similar"),
+    )
     return {
         "category_id": selection["category"],
         "prompt": selection["normal_word"],
         "alternate_prompt": selection["imposter_word"],
         "imposter_id": selection["imposter_id"],
         "selection": selection,
+        "live_drawings": {},
         "drawings": {},
         "votes": {},
         "scores": {player["id"]: 0 for player in players},
@@ -26,6 +34,39 @@ def submit_drawing(round_state, player_id, drawing):
     if not drawing or len(drawing) > 200000:
         raise ValueError("A valid drawing is required")
     round_state["drawings"][player_id] = drawing
+
+
+def submit_stroke(round_state, player_id, stroke):
+    if player_id in round_state["drawings"]:
+        raise ValueError("Drawing has already been submitted")
+    if not isinstance(stroke, dict) or stroke.get("type") not in ("start", "move", "end", "clear"):
+        raise ValueError("Invalid drawing stroke")
+    if stroke.get("type") == "clear":
+        round_state.setdefault("live_drawings", {}).setdefault(player_id, {}).clear()
+        return
+    stroke_id = stroke.get("strokeId")
+    if not isinstance(stroke_id, str) or not stroke_id or len(stroke_id) > 80:
+        raise ValueError("Invalid drawing stroke id")
+    if stroke["type"] in ("start", "move"):
+        point = stroke.get("point")
+        if not isinstance(point, dict) or not all(isinstance(point.get(key), (int, float)) and 0 <= point[key] <= 1 for key in ("x", "y")):
+            raise ValueError("Invalid drawing point")
+    player_strokes = round_state.setdefault("live_drawings", {}).setdefault(player_id, {})
+    if stroke["type"] == "start":
+        color = stroke.get("color", "#102b3f")
+        if color not in DRAWING_COLORS:
+            raise ValueError("Invalid drawing color")
+        if not isinstance(stroke.get("erase", False), bool):
+            raise ValueError("Invalid eraser state")
+        player_strokes[stroke_id] = {"strokeId": stroke_id, "points": [stroke["point"]], "color": color, "erase": stroke.get("erase", False)}
+    elif stroke["type"] == "move":
+        if stroke_id not in player_strokes:
+            raise ValueError("Drawing stroke has not started")
+        if len(player_strokes[stroke_id]["points"]) >= 2000:
+            raise ValueError("Drawing stroke is too long")
+        player_strokes[stroke_id]["points"].append(stroke["point"])
+    elif stroke_id not in player_strokes:
+        raise ValueError("Drawing stroke has not started")
 
 
 def submit_vote(round_state, player_id, target_id):

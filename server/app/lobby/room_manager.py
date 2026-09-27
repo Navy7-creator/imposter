@@ -58,12 +58,12 @@ def add_player(room, player):
 
 
 def active_players(room):
-    return [player for player in room["players"] if not player.get("left")]
+    return [player for player in room["players"] if player.get("connected", True) and not player.get("left")]
 
 
 def transfer_admin(room):
     next_admin = next((player for player in room["players"] if not player.get("left") and player.get("connected", True)), None)
-    next_admin = next_admin or next((player for player in room["players"] if not player.get("left")), None)
+    next_admin = next_admin or next((player for player in room["players"] if player.get("connected", True) and not player.get("left")), None)
     for player in room["players"]:
         player["isAdmin"] = bool(next_admin and player["id"] == next_admin["id"])
     return next_admin
@@ -119,13 +119,13 @@ def public_room(room):
         raw_statements = round_state.get("statements", [])
         if isinstance(raw_statements, dict):
             statements = [
-                {"playerId": player_id, "statement": item["statement"], "isTrue": item.get("isTrue")}
+                {"playerId": player_id, "statement": item["statement"]}
                 for player_id, items in raw_statements.items()
                 for item in (items if isinstance(items, list) else [])
             ]
         elif isinstance(raw_statements, list):
             statements = [
-                {"playerId": item.get("playerId"), "statement": item.get("statement"), "isTrue": item.get("isTrue")}
+                {"playerId": item.get("playerId"), "statement": item.get("statement")}
                 for item in raw_statements
             ]
 

@@ -57,6 +57,22 @@ def test_two_players_can_start_and_one_left_player_ends_game():
         rooms.pop(room["code"], None)
 
 
+def test_disconnected_players_are_not_active_but_remain_in_room():
+    room = {"code": "TEST-DISCONNECT", "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["food"], "players": [], "round": None, "chat": [], "settings": {}}
+    add_player(room, {"id": "player-0", "name": "One", "avatar": "😀", "connected": True})
+    add_player(room, {"id": "player-1", "name": "Two", "avatar": "😎", "connected": True})
+    add_player(room, {"id": "player-2", "name": "Three", "avatar": "🤓", "connected": True})
+
+    room["players"][1]["connected"] = False
+
+    assert len(active_players(room)) == 2
+    assert len(room["players"]) == 3
+
+    leave_player(room, "player-0")
+
+    assert len(active_players(room)) == 1
+
+
 def test_leaving_admin_transfers_admin_and_preserves_score():
     room = {"code": "TEST-ADMIN", "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["food"], "players": [], "round": None, "chat": [], "settings": {}}
     add_player(room, {"id": "player-0", "name": "Admin", "avatar": "😀", "connected": True})
@@ -104,6 +120,27 @@ def test_public_room_handles_rounds_without_descriptions():
     public_state = public_room(room)
 
     assert public_state["descriptions"] == []
+
+
+def test_public_room_does_not_expose_never_say_do_truth_values():
+    room = {
+        "code": "TEST-TRUTH",
+        "phase": "voting",
+        "modeId": "never-say-do",
+        "categoryIds": ["everyday-objects"],
+        "clueMode": "text",
+        "players": [],
+        "round": {
+            "statements": [{"playerId": "player-0", "statement": "A hidden claim", "isTrue": True}],
+            "answers": {},
+        },
+        "chat": [],
+        "settings": {},
+    }
+
+    public_state = public_room(room)
+
+    assert public_state["statements"] == [{"playerId": "player-0", "statement": "A hidden claim"}]
 
 
 def test_content_selector_uses_fresh_items_before_repeating():
@@ -157,6 +194,35 @@ def test_drawing_imposter_uses_history_aware_pair_selection():
     assert round_state["selection"]["used_before"] is False
     assert {round_state["prompt"], round_state["alternate_prompt"]} != {"pizza", "burger"}
     assert round_state["imposter_id"] != "player-0"
+    assert round_state["selection"]["relationship"] in {"confusing", "deceptively_similar"}
+
+
+def test_drawing_imposter_accepts_strokes_and_clear():
+    round_state = drawing_imposter.create_round(PLAYERS, ["food"])
+    drawing_imposter.submit_stroke(round_state, "player-0", {"type": "start", "strokeId": "stroke-1", "point": {"x": 0.2, "y": 0.3}})
+    drawing_imposter.submit_stroke(round_state, "player-0", {"type": "move", "strokeId": "stroke-1", "point": {"x": 0.4, "y": 0.5}})
+
+    assert round_state["live_drawings"]["player-0"]["stroke-1"]["points"][-1] == {"x": 0.4, "y": 0.5}
+
+    drawing_imposter.submit_stroke(round_state, "player-0", {"type": "clear"})
+
+    assert round_state["live_drawings"]["player-0"] == {}
+
+
+def test_drawing_imposter_preserves_color_and_eraser_stroke_metadata():
+    round_state = drawing_imposter.create_round(PLAYERS, ["food"])
+
+    drawing_imposter.submit_stroke(round_state, "player-0", {
+        "type": "start",
+        "strokeId": "stroke-ink",
+        "point": {"x": 0.1, "y": 0.1},
+        "color": "#ef5350",
+        "erase": True,
+    })
+
+    stroke = round_state["live_drawings"]["player-0"]["stroke-ink"]
+    assert stroke["color"] == "#ef5350"
+    assert stroke["erase"] is True
 
 
 def test_aware_imposter_round_resolves_after_all_votes():

@@ -34,6 +34,7 @@ export default function App({ socket }) {
     socket.on('round:results', setResults);
   }, [socket]);
 
+
   // Shared socket helper keeps all event calls consistent and error-aware.
   const emit = (event, payload = {}) =>
     new Promise((resolve) => {

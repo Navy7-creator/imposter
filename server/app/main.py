@@ -166,7 +166,17 @@ async def handle_event(websocket, event, payload):
     elif event == "round:start-voting" and room["modeId"] in ("aware-imposter", "unaware-imposter"):
         start_voting(room)
         await broadcast(room)
-    elif event == "round:vote" and room["modeId"] in ("aware-imposter", "unaware-imposter"):
+    elif event == "round:drawing:stroke" and room["modeId"] == "drawing-imposter":
+        if room["phase"] != "drawing":
+            raise ValueError("Drawing is no longer open")
+        if not next((player for player in active_players(room) if player["id"] == player_id), None):
+            raise ValueError("Only active players can draw")
+        stroke = payload.get("stroke")
+        mode.submit_stroke(room["round"], player_id, stroke)
+        await send_event(websocket, "round:drawing:stroke:accepted", {"stroke": stroke})
+    elif event == "round:vote" and room["modeId"] in ("aware-imposter", "unaware-imposter", "drawing-imposter"):
+        if room["phase"] != "voting":
+            raise ValueError("Voting is not open")
         mode.submit_vote(room["round"], player_id, payload.get("targetId"))
         advance_after_votes(room)
         await broadcast(room)
@@ -198,6 +208,8 @@ async def handle_event(websocket, event, payload):
         else:
             await broadcast(room)
     elif event == "round:drawing" and room["modeId"] == "drawing-imposter":
+        if room["phase"] != "drawing":
+            raise ValueError("Drawing is no longer open")
         mode.submit_drawing(room["round"], player_id, payload.get("drawing"))
         if len(room["round"]["drawings"]) == len(active_players(room)):
             room["phase"] = "voting"
@@ -289,6 +301,15 @@ async def websocket_endpoint(websocket: WebSocket):
             for player in room["players"]:
                 if player["id"] == player_id:
                     player["connected"] = False
+            round_state = room.get("round")
+            if round_state and player_id in round_state.get("player_order", []):
+                turn_index = round_state.get("turn_index", 0)
+                removed_index = round_state["player_order"].index(player_id)
+                round_state["player_order"].remove(player_id)
+                if removed_index < turn_index:
+                    round_state["turn_index"] = turn_index - 1
             if leaving_player and leaving_player.get("isAdmin"):
                 transfer_admin(room)
+            if room["phase"] not in ("lobby", "results", "ended") and len(active_players(room)) < 2:
+                room["phase"] = "ended"
             await broadcast(room)

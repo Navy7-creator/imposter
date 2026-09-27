@@ -18,6 +18,7 @@ import {
   MafiaNightScreen,
   MafiaDayScreen,
   MafiaVoteScreen,
+  DrawingVotingScreen,
 } from '../game/PhaseScreens';
 
 export default function RoomScreen({
@@ -43,6 +44,7 @@ export default function RoomScreen({
   playAgain,
   chooseAnotherGame,
   exitGame,
+  liveDrawings,
 }) {
   return (
     <main className={`shell theme-${theme}`}>
@@ -103,6 +105,10 @@ export default function RoomScreen({
 
         {room.phase === 'drawing' && room.modeId === 'drawing-imposter' && (
           <DrawingImposterScreen assignment={assignment} room={room} emit={emit} />
+        )}
+
+        {room.phase === 'voting' && room.modeId === 'drawing-imposter' && (
+          <DrawingVotingScreen room={room} currentPlayer={currentPlayer} vote={vote} />
         )}
 
         {room.phase === 'statements' && room.modeId === 'guess-the-lie' && (
