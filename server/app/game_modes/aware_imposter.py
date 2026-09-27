@@ -1,20 +1,16 @@
 import random
 
-from .categories import CATEGORIES
+from .content import choose_imposter_round
 
 
-def create_round(players, category_id="everyday-objects"):
-    category_ids = category_id if isinstance(category_id, list) else [category_id]
-    category_id = random.choice(category_ids)
-    words = CATEGORIES.get(category_id, CATEGORIES["everyday-objects"])
-    target_word = random.choice(words)
-    alternate_words = [word for word in words if word != target_word]
-    imposter_id = random.choice(players)["id"]
+def create_round(players, category_id="everyday-objects", history=None):
+    selection = choose_imposter_round(players, category_id if isinstance(category_id, list) else [category_id], history)
     return {
-        "category_id": category_id,
-        "target_word": target_word,
-        "alternate_word": random.choice(alternate_words),
-        "imposter_id": imposter_id,
+        "category_id": selection["category"],
+        "target_word": selection["normal_word"],
+        "alternate_word": selection["imposter_word"],
+        "imposter_id": selection["imposter_id"],
+        "selection": selection,
         "descriptions": {},
         "votes": {},
         "scores": {player["id"]: 0 for player in players},

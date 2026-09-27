@@ -1,16 +1,18 @@
-import random
-
-from .categories import CATEGORIES
+from .content import choose_imposter_round
 
 
-def create_round(players, category_id="everyday-objects"):
-    category_ids = category_id if isinstance(category_id, list) else [category_id]
-    category_id = random.choice(category_ids)
-    prompts = CATEGORIES.get(category_id, CATEGORIES["everyday-objects"])
-    prompt = random.choice(prompts)
-    alternate = random.choice([item for item in prompts if item != prompt])
-    imposter_id = random.choice(players)["id"]
-    return {"category_id": category_id, "prompt": prompt, "alternate_prompt": alternate, "imposter_id": imposter_id, "drawings": {}, "votes": {}, "scores": {player["id"]: 0 for player in players}}
+def create_round(players, category_id="everyday-objects", history=None):
+    selection = choose_imposter_round(players, category_id if isinstance(category_id, list) else [category_id], history)
+    return {
+        "category_id": selection["category"],
+        "prompt": selection["normal_word"],
+        "alternate_prompt": selection["imposter_word"],
+        "imposter_id": selection["imposter_id"],
+        "selection": selection,
+        "drawings": {},
+        "votes": {},
+        "scores": {player["id"]: 0 for player in players},
+    }
 
 
 def private_assignment(round_state, player_id):

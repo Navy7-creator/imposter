@@ -38,6 +38,11 @@ export default function RoomScreen({
   submitDescription,
   vote,
   emit,
+  leaveRoom,
+  returnToLobby,
+  playAgain,
+  chooseAnotherGame,
+  exitGame,
 }) {
   return (
     <main className={`shell theme-${theme}`}>
@@ -70,7 +75,7 @@ export default function RoomScreen({
         )}
 
         {room.phase === 'lobby' && (setupStep === 'ready' || !currentPlayer?.isAdmin) && (
-          <Lobby room={room} currentPlayer={currentPlayer} start={start} error={error} emit={emit} />
+          <Lobby room={room} currentPlayer={currentPlayer} start={start} error={error} emit={emit} leaveRoom={leaveRoom} />
         )}
 
         {room.phase === 'descriptions' && (
@@ -126,7 +131,16 @@ export default function RoomScreen({
 
         {room.phase === 'voting' && room.modeId === 'aware-imposter' && <Voting room={room} currentPlayer={currentPlayer} vote={vote} error={error} />}
         {room.phase === 'voting' && room.modeId === 'unaware-imposter' && <Voting room={room} currentPlayer={currentPlayer} vote={vote} error={error} />}
-        {room.phase === 'results' && <Results results={results} room={room} />}
+        {room.phase === 'results' && <Results results={results} room={room} returnToLobby={returnToLobby} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />}
+        {room.phase === 'ended' && (
+          <div className="content">
+            <p className="eyebrow">Game ended</p>
+            <h1>Not enough players remain.</h1>
+            <p className="subtle">At least two active players are needed to start another round.</p>
+            {currentPlayer?.isAdmin && <button className="primary" onClick={returnToLobby}>Return to lobby <span>→</span></button>}
+            <button className="secondary" onClick={leaveRoom}>Exit game</button>
+          </div>
+        )}
       </section>
     </main>
   );

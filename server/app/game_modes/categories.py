@@ -1,9 +1,7 @@
-CATEGORIES = {
-    "everyday-objects": ["backpack", "lighthouse", "umbrella", "toaster", "spaceship"],
-    "marvel-universe": ["Spider-Man", "Iron Man", "Thor", "Hulk", "Black Panther"],
-    "bts-songs": ["Dynamite", "Butter", "Spring Day", "DNA", "Fire"],
-    "people-and-places": ["detective", "astronaut", "chef", "museum", "stadium"],
-}
+from .content import load_content
+
+
+CATEGORIES = load_content("imposter_words.json")
 
 CATEGORY_CATALOG = [
     {"id": category_id, "name": category_id.replace("-", " ").title()}

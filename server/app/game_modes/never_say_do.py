@@ -1,16 +1,16 @@
 import random
 
-PROMPTS = [
-    "would never say",
-    "would never do",
-]
+from .content import choose, load_content
+
+
+PROMPTS = load_content("never_say_do_prompts.json")
 
 
 def create_round(players, _category_ids=None):
     target = random.choice(players)
     return {
         "target_id": target["id"],
-        "prompt": random.choice(PROMPTS),
+        "prompt": choose(PROMPTS, "never-say-do"),
         "statements": [],
         "answers": {},
         "scores": {player["id"]: 0 for player in players},

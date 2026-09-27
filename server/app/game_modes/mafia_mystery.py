@@ -22,8 +22,8 @@ def _role_list(count):
 
 
 def create_round(players, _category_ids=None):
-    if not 4 <= len(players) <= 10:
-        raise ValueError("Mystery Room needs 4 to 10 players")
+    if not 2 <= len(players) <= 10:
+        raise ValueError("Mystery Room needs 2 to 10 players")
     script = _script()
     ids = [player["id"] for player in players]
     roles = _role_list(len(ids))

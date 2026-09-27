@@ -24,6 +24,11 @@ from app.lobby.room_manager import (
     set_clue_mode,
     set_mystery_settings,
     add_chat_message,
+    active_players,
+    exit_game,
+    leave_player,
+    return_to_lobby,
+    transfer_admin,
     rooms,
 )
 
@@ -86,6 +91,14 @@ async def assignments(room):
             await send_event(websocket, "round:assignment", mode.private_assignment(room["round"], player["id"]))
 
 
+def finalize_result(room, result):
+    for player in room["players"]:
+        player["score"] = player.get("score", 0) + result.get("scores", {}).get(player["id"], 0)
+    result["scores"] = {player["id"]: player.get("score", 0) for player in room["players"]}
+    save_result(room, result)
+    return result
+
+
 async def handle_event(websocket, event, payload):
     room_code = websocket.scope.get("room_code")
     player_id = websocket.scope.get("player_id")
@@ -93,7 +106,13 @@ async def handle_event(websocket, event, payload):
 
     if event == "room:join":
         room = join_room(payload.get("code"))
-        player = {"id": payload.get("playerId") or secrets_token(), "name": payload.get("name", "").strip()[:24], "avatar": payload.get("avatar") or "sun", "connected": True}
+        player = {
+            "id": payload.get("playerId") or secrets_token(),
+            "name": payload.get("name", "").strip()[:24],
+            "avatar": payload.get("avatar") or "😀",
+            "avatarColor": payload.get("avatarColor") or "cyan",
+            "connected": True,
+        }
         if not player["name"]:
             raise ValueError("A player name is required")
         add_player(room, player)
@@ -106,7 +125,22 @@ async def handle_event(websocket, event, payload):
     if room is None:
         raise ValueError("Join a room first")
     mode = get_game_mode(room["modeId"])
-    if event == "room:mode":
+    if event == "room:leave":
+        leave_player(room, player_id)
+        connections.get(room["code"], {}).pop(player_id, None)
+        await broadcast(room)
+        return
+    if event == "room:return-lobby":
+        return_to_lobby(room, player_id)
+        await broadcast(room)
+    elif event == "room:play-again":
+        start_round(room, player_id)
+        await assignments(room)
+        await broadcast(room)
+    elif event == "room:exit-game":
+        exit_game(room, player_id)
+        await broadcast(room)
+    elif event == "room:mode":
         set_mode(room, payload.get("modeId"), player_id)
         await broadcast(room)
     elif event == "room:categories":
@@ -138,39 +172,39 @@ async def handle_event(websocket, event, payload):
         await broadcast(room)
         if room["phase"] == "results":
             result = mode.resolve_round(room["round"])
-            save_result(room, result)
+            finalize_result(room, result)
             await broadcast(room, "round:results", result)
     elif event == "round:guess" and room["modeId"] == "guess-number":
         mode.submit_guess(room["round"], player_id, payload.get("targetId"), payload.get("guess"))
         if room["round"]["winner_id"]:
             room["phase"] = "results"
             result = mode.resolve_round(room["round"])
-            save_result(room, result)
+            finalize_result(room, result)
             await broadcast(room, "round:results", result)
         else:
             await broadcast(room)
     elif event == "round:statement" and room["modeId"] == "never-say-do":
         mode.submit_statement(room["round"], player_id, payload.get("statement", ""), payload.get("isTrue", False))
-        if len(room["round"]["statements"]) == len(room["players"]):
+        if len(room["round"]["statements"]) == len(active_players(room)):
             room["phase"] = "voting"
         await broadcast(room)
     elif event == "round:answer" and room["modeId"] == "never-say-do":
         mode.submit_answer(room["round"], player_id, payload.get("statementId"), payload.get("answer", False))
-        if len(room["round"]["answers"]) == len(room["players"]):
+        if len(room["round"]["answers"]) == len(active_players(room)):
             room["phase"] = "results"
             result = mode.resolve_round(room["round"])
-            save_result(room, result)
+            finalize_result(room, result)
             await broadcast(room, "round:results", result)
         else:
             await broadcast(room)
     elif event == "round:drawing" and room["modeId"] == "drawing-imposter":
         mode.submit_drawing(room["round"], player_id, payload.get("drawing"))
-        if len(room["round"]["drawings"]) == len(room["players"]):
+        if len(room["round"]["drawings"]) == len(active_players(room)):
             room["phase"] = "voting"
         await broadcast(room)
     elif event == "round:guess-lie-statements" and room["modeId"] == "guess-the-lie":
         mode.submit_statements(room["round"], player_id, payload.get("statements"))
-        if len(room["round"]["statements"]) == len(room["players"]):
+        if len(room["round"]["statements"]) == len(active_players(room)):
             room["phase"] = "voting"
         await broadcast(room)
     elif event == "round:guess-lie-vote" and room["modeId"] == "guess-the-lie":
@@ -178,7 +212,7 @@ async def handle_event(websocket, event, payload):
         if len(room["round"]["votes"]) == len(room["players"]):
             room["phase"] = "results"
             result = mode.resolve_round(room["round"])
-            save_result(room, result)
+            finalize_result(room, result)
             await broadcast(room, "round:results", result)
         else:
             await broadcast(room)
@@ -191,7 +225,7 @@ async def handle_event(websocket, event, payload):
                 room["phase"] = "results"
                 room["round"]["winner"] = winning
                 result = mode.results(room["round"])
-                save_result(room, result)
+                finalize_result(room, result)
                 await broadcast(room, "round:results", result)
                 return
             room["phase"] = "day"
@@ -213,7 +247,7 @@ async def handle_event(websocket, event, payload):
                 room["phase"] = "results"
                 room["round"]["winner"] = winning
                 result = mode.results(room["round"])
-                save_result(room, result)
+                finalize_result(room, result)
                 await broadcast(room, "round:results", result)
             else:
                 room["phase"] = "night"
@@ -256,8 +290,5 @@ async def websocket_endpoint(websocket: WebSocket):
                 if player["id"] == player_id:
                     player["connected"] = False
             if leaving_player and leaving_player.get("isAdmin"):
-                next_admin = next((player for player in room["players"] if player["connected"]), None)
-                if next_admin:
-                    for player in room["players"]:
-                        player["isAdmin"] = player["id"] == next_admin["id"]
+                transfer_admin(room)
             await broadcast(room)

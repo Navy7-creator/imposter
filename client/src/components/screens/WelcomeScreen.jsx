@@ -1,5 +1,6 @@
 import React from 'react';
 import ThemePicker from '../ThemePicker';
+import AvatarPicker from '../AvatarPicker';
 
 export default function WelcomeScreen({
   form,
@@ -11,6 +12,8 @@ export default function WelcomeScreen({
   setEntryMode,
   theme,
   changeTheme,
+  changeAvatar,
+  changeAvatarColor,
   join,
 }) {
   return (
@@ -73,6 +76,13 @@ export default function WelcomeScreen({
                 placeholder="e.g. Casey"
               />
             </label>
+
+            <AvatarPicker
+              avatar={form.avatar}
+              avatarColor={form.avatarColor}
+              setAvatar={changeAvatar}
+              setAvatarColor={changeAvatarColor}
+            />
 
             {entryMode === 'join' && (
               <label>

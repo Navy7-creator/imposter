@@ -1,0 +1,50 @@
+{
+  "everyday-objects": [
+    "backpack",
+    "lighthouse",
+    "umbrella",
+    "toaster",
+    "spaceship",
+    "compass",
+    "pocket watch",
+    "telescope",
+    "raincoat",
+    "board game"
+  ],
+  "marvel-universe": [
+    "Spider-Man",
+    "Iron Man",
+    "Thor",
+    "Hulk",
+    "Black Panther",
+    "Captain Marvel",
+    "Doctor Strange",
+    "Wakanda",
+    "Loki",
+    "Avengers Tower"
+  ],
+  "bts-songs": [
+    "Dynamite",
+    "Butter",
+    "Spring Day",
+    "DNA",
+    "Fire",
+    "Boy With Luv",
+    "Fake Love",
+    "Mic Drop",
+    "Permission to Dance",
+    "Black Swan"
+  ],
+  "people-and-places": [
+    "detective",
+    "astronaut",
+    "chef",
+    "museum",
+    "stadium",
+    "librarian",
+    "airport",
+    "lifeguard",
+    "theater",
+    "mountain guide"
+  ]
+}

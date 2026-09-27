@@ -13,6 +13,8 @@ export default function App({ socket }) {
     code: new URLSearchParams(window.location.search).get('room')?.toUpperCase() || '',
     name: '',
     playerId: sessionStorage.getItem('imposter-tab-id') || crypto.randomUUID(),
+    avatar: localStorage.getItem('imposter-avatar') || '😀',
+    avatarColor: localStorage.getItem('imposter-avatar-color') || 'cyan',
   }));
 
   // Round-specific values for submissions and errors.
@@ -72,6 +74,22 @@ export default function App({ socket }) {
     await emit('round:description', { description });
     setDescription('');
   };
+  const leaveRoom = async () => {
+    const response = await emit('room:leave');
+    if (!response?.error) {
+      setRoom(null);
+      setAssignment(null);
+      setResults(null);
+      socket.disconnect();
+    }
+  };
+  const returnToLobby = () => emit('room:return-lobby');
+  const playAgain = () => emit('room:play-again');
+  const chooseAnotherGame = async () => {
+    await emit('room:return-lobby');
+    setSetupStep('game');
+  };
+  const exitGame = () => emit('room:exit-game');
   const vote = (targetId) => emit('round:vote', { targetId });
   const chooseGame = async (modeId) => {
     await emit('room:mode', { modeId });
@@ -89,6 +107,14 @@ export default function App({ socket }) {
     setTheme(themeId);
     localStorage.setItem('imposter-theme', themeId);
   };
+  const changeAvatar = (avatar) => {
+    setForm((current) => ({ ...current, avatar }));
+    localStorage.setItem('imposter-avatar', avatar);
+  };
+  const changeAvatarColor = (avatarColor) => {
+    setForm((current) => ({ ...current, avatarColor }));
+    localStorage.setItem('imposter-avatar-color', avatarColor);
+  };
 
   if (!room) {
     return (
@@ -102,6 +128,8 @@ export default function App({ socket }) {
         setEntryMode={setEntryMode}
         theme={theme}
         changeTheme={changeTheme}
+        changeAvatar={changeAvatar}
+        changeAvatarColor={changeAvatarColor}
         join={join}
       />
     );
@@ -128,6 +156,11 @@ export default function App({ socket }) {
       submitDescription={submitDescription}
       vote={vote}
       emit={emit}
+      leaveRoom={leaveRoom}
+      returnToLobby={returnToLobby}
+      playAgain={playAgain}
+      chooseAnotherGame={chooseAnotherGame}
+      exitGame={exitGame}
     />
   );
 }

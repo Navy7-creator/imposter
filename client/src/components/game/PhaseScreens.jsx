@@ -66,9 +66,9 @@ export function Voting({ room, currentPlayer, vote, error }) {
       <h1>Who is the Imposter?</h1>
 
       <div className="vote-list">
-        {room.players.map((player) => (
+        {room.players.filter((player) => !player.left).map((player) => (
           <button key={player.id} onClick={() => vote(player.id)} disabled={player.id === currentPlayer?.id}>
-            <span className="avatar">{player.avatar[0].toUpperCase()}</span>
+            <span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span>
             <strong>{player.name}</strong>
             <span className="vote-status">{room.votedPlayerIds?.includes(player.id) ? '✓' : 'Vote →'}</span>
           </button>
@@ -97,7 +97,7 @@ export function GuessNumberScreen({ assignment, room, emit }) {
         Target player
         <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
           {room.players
-            .filter((player) => player.id !== assignment?.playerId)
+            .filter((player) => !player.left && player.id !== assignment?.playerId)
             .map((player) => (
               <option key={player.id} value={player.id}>
                 {player.name}
@@ -252,9 +252,9 @@ export function GuessTheLieVoteScreen({ room, emit }) {
       <h1>Pick the player and statement you think is the lie.</h1>
 
       <div className="vote-list">
-        {room.players.map((player) => (
+        {room.players.filter((player) => !player.left).map((player) => (
           <button key={player.id} onClick={() => emit('round:guess-lie-vote', { targetId: player.id, statementIndex: 0 })}>
-            <span className="avatar">{player.avatar[0].toUpperCase()}</span>
+            <span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span>
             <strong>{player.name}</strong>
             <span>Vote →</span>
           </button>
@@ -319,10 +319,10 @@ export function MafiaDayScreen({ room, currentPlayer, emit }) {
 }
 
 export function MafiaVoteScreen({ room, emit }) {
-  return <div className="content"><p className="eyebrow">Mystery Room · Vote</p><h1>Who took <em>{room.script?.macguffin}</em>?</h1><div className="vote-list">{room.players.filter((player) => room.alive.includes(player.id)).map((player) => <button key={player.id} onClick={() => emit('round:mafia-vote', { targetId: player.id })}><span className="avatar">{player.avatar[0].toUpperCase()}</span><strong>{player.name}</strong><span>Vote →</span></button>)}</div><p className="counter">{room.votesSubmitted} / {room.alive.length} votes in</p></div>;
+  return <div className="content"><p className="eyebrow">Mystery Room · Vote</p><h1>Who took <em>{room.script?.macguffin}</em>?</h1><div className="vote-list">{room.players.filter((player) => !player.left && room.alive.includes(player.id)).map((player) => <button key={player.id} onClick={() => emit('round:mafia-vote', { targetId: player.id })}><span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span><strong>{player.name}</strong><span>Vote →</span></button>)}</div><p className="counter">{room.votesSubmitted} / {room.alive.length} votes in</p></div>;
 }
 
-export function Results({ results, room }) {
+export function Results({ results, room, returnToLobby, playAgain, chooseAnotherGame, exitGame }) {
   if (room.modeId === 'mafia-mystery') {
     const culprits = Object.entries(results?.roles || {}).filter(([, role]) => role === 'culprit').map(([id]) => room.players.find((player) => player.id === id)?.name).filter(Boolean);
     return (
@@ -330,7 +330,8 @@ export function Results({ results, room }) {
         <p className="eyebrow">Mystery Room · Case closed</p>
         <h1>{results?.winner === 'culprits' ? 'The culprits escaped.' : 'The innocents solved it.'}</h1>
         <p className="reveal">The culprits were <strong>{culprits.join(', ')}</strong>.</p>
-        <div className="scores">{Object.entries(results?.scores || {}).map(([id, score]) => <div key={id}><span>{room.players.find((player) => player.id === id)?.name}</span><strong>{score} pts</strong></div>)}</div>
+        <Scoreboard room={room} scores={results?.scores} />
+        <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
       </div>
     );
   }
@@ -344,14 +345,19 @@ export function Results({ results, room }) {
         <strong>{room.players.find((player) => player.id === results?.imposterId)?.name}</strong>.
       </p>
 
-      <div className="scores">
-        {Object.entries(results?.scores || {}).map(([id, score]) => (
-          <div key={id}>
-            <span>{room.players.find((player) => player.id === id)?.name}</span>
-            <strong>{score} pts</strong>
-          </div>
-        ))}
-      </div>
+      <Scoreboard room={room} scores={results?.scores} />
+      <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
     </div>
   );
+}
+
+function Scoreboard({ room, scores = {} }) {
+  return <div className="scores">{Object.entries(scores).map(([id, score]) => {
+    const player = room.players.find((item) => item.id === id);
+    return <div className={player?.left ? 'player-left' : ''} key={id}><span><span className={`avatar color-${player?.avatarColor || 'cyan'}`}>{player?.left ? '🏃' : player?.avatar}</span> {player?.name}{player?.left ? ' · Left' : ''}</span><strong>{score} pts</strong></div>;
+  })}</div>;
+}
+
+function ResultActions({ playAgain, chooseAnotherGame, exitGame }) {
+  return <div className="result-actions"><button className="primary" onClick={playAgain}>Play again <span>→</span></button><button className="secondary" onClick={chooseAnotherGame}>Choose game</button><button className="secondary" onClick={exitGame}>Exit game</button></div>;
 }

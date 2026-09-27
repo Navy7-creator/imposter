@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 
 from app.game_modes import aware_imposter, drawing_imposter, guess_number, guess_the_lie, never_say_do
+from app.game_modes.content import choose, choose_imposter_round
 from app.game_modes.registry import MODES
-from app.lobby.room_manager import add_player, rooms, start_round
+from app.lobby.room_manager import active_players, add_player, exit_game, leave_player, public_room, rooms, start_round
 
 
 PLAYERS = [{"id": f"player-{index}", "name": f"Player {index}", "avatar": "sun", "connected": True} for index in range(4)]
@@ -36,6 +37,126 @@ def test_start_round_contract_for_every_active_mode():
             assert room["phase"] != "lobby"
         finally:
             rooms.pop(room_code, None)
+
+
+def test_two_players_can_start_and_one_left_player_ends_game():
+    room = {"code": "TEST-TWO", "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["food"], "players": [], "round": None, "chat": [], "settings": {}}
+    rooms[room["code"]] = room
+    try:
+        add_player(room, {"id": "player-0", "name": "One", "avatar": "😀", "connected": True})
+        add_player(room, {"id": "player-1", "name": "Two", "avatar": "😎", "connected": True})
+        start_round(room, "player-0")
+        assert len(active_players(room)) == 2
+
+        leave_player(room, "player-1")
+
+        assert room["phase"] == "ended"
+        assert len(active_players(room)) == 1
+        assert room["players"][1]["left"] is True
+    finally:
+        rooms.pop(room["code"], None)
+
+
+def test_leaving_admin_transfers_admin_and_preserves_score():
+    room = {"code": "TEST-ADMIN", "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["food"], "players": [], "round": None, "chat": [], "settings": {}}
+    add_player(room, {"id": "player-0", "name": "Admin", "avatar": "😀", "connected": True})
+    add_player(room, {"id": "player-1", "name": "Next", "avatar": "😎", "connected": True})
+    room["players"][0]["score"] = 7
+    start_round(room, "player-0")
+
+    leave_player(room, "player-0")
+
+    assert room["players"][1]["isAdmin"] is True
+    assert room["players"][0]["score"] == 7
+    assert room["players"][0]["left"] is True
+
+
+def test_exit_game_returns_persistent_room_to_lobby():
+    room = {"code": "TEST-EXIT", "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["food"], "players": [], "round": None, "chat": [], "settings": {}}
+    add_player(room, {"id": "player-0", "name": "One", "avatar": "😀", "connected": True})
+    add_player(room, {"id": "player-1", "name": "Two", "avatar": "😎", "connected": True})
+    room["phase"] = "results"
+    room["round"] = {"scores": {}}
+
+    exit_game(room, "player-1")
+
+    assert room["phase"] == "lobby"
+    assert room["round"] is None
+    assert len(room["players"]) == 2
+
+
+def test_public_room_handles_rounds_without_descriptions():
+    room = {
+        "code": "TEST-PUBLIC",
+        "phase": "guessing",
+        "modeId": "guess-number",
+        "categoryIds": ["everyday-objects"],
+        "clueMode": "text",
+        "players": [
+            {**player, "isAdmin": index == 0}
+            for index, player in enumerate(PLAYERS)
+        ],
+        "round": guess_number.create_round(PLAYERS),
+        "chat": [],
+        "settings": {},
+    }
+
+    public_state = public_room(room)
+
+    assert public_state["descriptions"] == []
+
+
+def test_content_selector_uses_fresh_items_before_repeating():
+    pool = [f"item-{index}" for index in range(10)]
+
+    selected = [choose(pool, "test-fresh-content") for _ in range(9)]
+
+    assert len(set(selected)) == 9
+
+
+def test_imposter_selector_rejects_reversed_pairs():
+    history = [{
+        "category": "food",
+        "normal_word": "pizza",
+        "imposter_word": "burger",
+        "relationship": "confusing",
+        "difficulty": "easy",
+        "imposter_id": "player-0",
+    }]
+
+    selection = choose_imposter_round(PLAYERS, ["food"], history)
+
+    assert frozenset((selection["normal_word"], selection["imposter_word"])) != frozenset(("pizza", "burger"))
+    assert selection["used_before"] is False
+
+
+def test_imposter_selector_favors_least_used_player():
+    history = [
+        {"normal_word": "one", "imposter_word": "two", "imposter_id": "player-0"},
+        {"normal_word": "three", "imposter_word": "four", "imposter_id": "player-0"},
+        {"normal_word": "five", "imposter_word": "six", "imposter_id": "player-1"},
+    ]
+
+    selection = choose_imposter_round(PLAYERS, ["food"], history)
+
+    assert selection["imposter_id"] in {"player-2", "player-3"}
+
+
+def test_drawing_imposter_uses_history_aware_pair_selection():
+    history = [{
+        "category": "food",
+        "normal_word": "pizza",
+        "imposter_word": "burger",
+        "relationship": "confusing",
+        "difficulty": "easy",
+        "imposter_id": "player-0",
+    }]
+
+    round_state = drawing_imposter.create_round(PLAYERS, ["food"], history)
+
+    assert round_state["selection"]["used_before"] is False
+    assert {round_state["prompt"], round_state["alternate_prompt"]} != {"pizza", "burger"}
+    assert round_state["imposter_id"] != "player-0"
 
 
 def test_aware_imposter_round_resolves_after_all_votes():

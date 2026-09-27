@@ -20,7 +20,7 @@ def create_code():
 def get_or_create_room(requested_code):
     code = (requested_code or "").strip().upper() or create_code()
     if code not in rooms:
-        rooms[code] = {"code": code, "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["everyday-objects"], "clueMode": "text", "players": [], "round": None, "chat": [], "settings": {"eliminateTies": False, "suddenDeath": True}}
+        rooms[code] = {"code": code, "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["everyday-objects"], "clueMode": "text", "players": [], "round": None, "roundHistory": [], "chat": [], "settings": {"eliminateTies": False, "suddenDeath": True}}
     return rooms[code]
 
 
@@ -38,24 +38,80 @@ def join_room(room_code):
 
 
 def add_player(room, player):
+    existing = next((item for item in room["players"] if item["id"] == player["id"]), None)
+    if existing:
+        if room["phase"] != "lobby" and not existing.get("left"):
+            raise ValueError("This player is already in the room. Open a new tab or use a different player.")
+        existing.update({"name": player["name"], "avatar": player["avatar"], "avatarColor": player["avatarColor"], "connected": True, "left": False})
+        return existing
     if room["phase"] != "lobby":
         raise ValueError("This room is already playing")
     if len(room["players"]) >= 10:
         raise ValueError("Room is full")
-    if any(existing["id"] == player["id"] for existing in room["players"]):
-        raise ValueError("This player is already in the room. Open a new tab or use a different player.")
-    player["isAdmin"] = len(room["players"]) == 0
+    player.setdefault("avatarColor", "cyan")
+    player.setdefault("score", 0)
+    player.setdefault("connected", True)
+    player.setdefault("left", False)
+    player["isAdmin"] = not room["players"]
     room["players"].append(player)
+    return player
+
+
+def active_players(room):
+    return [player for player in room["players"] if not player.get("left")]
+
+
+def transfer_admin(room):
+    next_admin = next((player for player in room["players"] if not player.get("left") and player.get("connected", True)), None)
+    next_admin = next_admin or next((player for player in room["players"] if not player.get("left")), None)
+    for player in room["players"]:
+        player["isAdmin"] = bool(next_admin and player["id"] == next_admin["id"])
+    return next_admin
+
+
+def leave_player(room, player_id):
+    player = next((item for item in room["players"] if item["id"] == player_id), None)
+    if player is None:
+        raise ValueError("Player is not in this room")
+    if room["phase"] == "lobby":
+        room["players"].remove(player)
+    else:
+        player["left"] = True
+        player["connected"] = False
+    if player.get("isAdmin") or not any(item.get("isAdmin") and not item.get("left") for item in room["players"]):
+        transfer_admin(room)
+    if room["phase"] != "lobby" and len(active_players(room)) < 2:
+        room["phase"] = "ended"
+    return player
+
+
+def return_to_lobby(room, player_id):
+    if room["phase"] not in ("results", "ended"):
+        raise ValueError("The current game has not ended")
+    if not next((player for player in active_players(room) if player["id"] == player_id and player.get("isAdmin")), None):
+        raise ValueError("Only the admin can return the room to the lobby")
+    room["phase"] = "lobby"
+    room["round"] = None
+
+
+def exit_game(room, player_id):
+    if room["phase"] not in ("results", "ended"):
+        raise ValueError("The current game has not ended")
+    if not next((player for player in active_players(room) if player["id"] == player_id), None):
+        raise ValueError("Only an active player can exit the game")
+    room["phase"] = "lobby"
+    room["round"] = None
 
 
 def public_room(room):
     round_state = room.get("round")
 
     descriptions = []
-    if round_state and isinstance(round_state.get("descriptions", {}), dict):
+    raw_descriptions = round_state.get("descriptions", {}) if round_state else {}
+    if isinstance(raw_descriptions, dict):
         descriptions = [
             {"playerId": player_id, "type": clue.get("type", "text"), "description": clue.get("description", "")}
-            for player_id, clue in round_state["descriptions"].items()
+            for player_id, clue in raw_descriptions.items()
         ]
 
     statements = []
@@ -80,9 +136,11 @@ def public_room(room):
         "categoryIds": room["categoryIds"],
         "clueMode": room["clueMode"],
         "players": [
-            {key: player[key] for key in ("id", "name", "avatar", "connected", "isAdmin")}
+            {key: player.get(key) for key in ("id", "name", "avatar", "avatarColor", "connected", "left", "isAdmin", "score")}
             for player in room["players"]
         ],
+        "activePlayerCount": len(active_players(room)),
+        "gameEnded": room["phase"] == "ended",
         "descriptions": descriptions,
         "votesSubmitted": len(round_state.get("votes", {})) if round_state and isinstance(round_state.get("votes", {}), dict) else 0,
         "votedPlayerIds": list(round_state.get("votes", {}).keys()) if round_state and isinstance(round_state.get("votes", {}), dict) else [],
@@ -106,11 +164,18 @@ def public_room(room):
 
 
 def start_round(room, player_id):
-    if len(room["players"]) < 4:
-        raise ValueError("At least 4 players are required")
-    if not next((player for player in room["players"] if player["id"] == player_id and player["isAdmin"]), None):
+    players = active_players(room)
+    if len(players) < 2:
+        raise ValueError("At least 2 active players are required")
+    if not next((player for player in players if player["id"] == player_id and player["isAdmin"]), None):
         raise ValueError("Only the room admin can start the game")
-    room["round"] = get_game_mode(room["modeId"]).create_round(room["players"], room["categoryIds"])
+    mode = get_game_mode(room["modeId"])
+    history = room.setdefault("roundHistory", [])
+    if room["modeId"] in ("aware-imposter", "unaware-imposter", "drawing-imposter"):
+        room["round"] = mode.create_round(players, room["categoryIds"], history)
+        history.append(room["round"]["selection"])
+    else:
+        room["round"] = mode.create_round(players, room["categoryIds"])
     room["phase"] = {"guess-number": "guessing", "never-say-do": "statements", "drawing-imposter": "drawing", "guess-the-lie": "statements", "mafia-mystery": "night"}.get(room["modeId"], "descriptions")
 
 
@@ -169,7 +234,8 @@ def add_chat_message(room, player_id, message):
 
 
 def advance_after_descriptions(room):
-    if room["phase"] == "descriptions" and len(room["round"]["descriptions"]) == len(room["players"]):
+    players = active_players(room)
+    if room["phase"] == "descriptions" and all(player["id"] in room["round"]["descriptions"] for player in players):
         room["phase"] = "discussion"
 
 
@@ -180,5 +246,6 @@ def start_voting(room):
 
 
 def advance_after_votes(room):
-    if room["phase"] == "voting" and len(room["round"]["votes"]) == len(room["players"]):
+    players = active_players(room)
+    if room["phase"] == "voting" and all(player["id"] in room["round"]["votes"] for player in players):
         room["phase"] = "results"
