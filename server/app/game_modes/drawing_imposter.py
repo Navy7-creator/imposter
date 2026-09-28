@@ -72,6 +72,8 @@ def submit_stroke(round_state, player_id, stroke):
 def submit_vote(round_state, player_id, target_id):
     if player_id in round_state["votes"]:
         raise ValueError("Vote already submitted")
+    if target_id not in round_state["scores"]:
+        raise ValueError("Vote target is not part of this round")
     if player_id == target_id:
         raise ValueError("You cannot vote for yourself")
     round_state["votes"][player_id] = target_id

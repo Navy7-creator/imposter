@@ -159,6 +159,10 @@ def public_room(room):
         "script": round_state.get("script") if round_state else None,
         "settings": room["settings"],
         "drawings": round_state.get("drawings", {}) if round_state else {},
+        "liveDrawings": {
+            player_id: list(strokes.values())
+            for player_id, strokes in (round_state.get("live_drawings", {}) if round_state else {}).items()
+        },
         "chat": room["chat"][-50:],
     }
 

@@ -45,6 +45,15 @@ function createSocket() {
 		on(event, listener) {
 			eventListeners.set(event, [...(eventListeners.get(event) || []), listener]);
 		},
+		off(event, listener) {
+			const listeners = eventListeners.get(event) || [];
+			eventListeners.set(event, listeners.filter((item) => item !== listener));
+		},
+		disconnect() {
+			pending.length = 0;
+			websocket?.close();
+			websocket = undefined;
+		},
 		removeAllListeners() {
 			eventListeners.clear();
 		},

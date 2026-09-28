@@ -52,10 +52,11 @@ export default function RoomScreen({
       <header className="topbar">
         <div className="masthead">
           <span className="mark">IF</span>
-          <span>IMPOSTER & FRIENDS</span>
+          <span>IF IMPOSTER AND FRIENDS</span>
         </div>
 
         <RoomShare code={room.code} />
+        <button className="secondary leave-button" onClick={leaveRoom}>Leave Game</button>
         <span className="room-pill">ROOM {room.code}</span>
       </header>
 
@@ -105,7 +106,7 @@ export default function RoomScreen({
         )}
 
         {room.phase === 'drawing' && room.modeId === 'drawing-imposter' && (
-          <DrawingImposterScreen assignment={assignment} room={room} emit={emit} />
+            <DrawingImposterScreen assignment={assignment} room={room} emit={emit} liveDrawings={liveDrawings} currentPlayer={currentPlayer} />
         )}
 
         {room.phase === 'voting' && room.modeId === 'drawing-imposter' && (

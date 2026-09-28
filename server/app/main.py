@@ -184,11 +184,16 @@ async def handle_event(websocket, event, payload):
             raise ValueError("Only active players can draw")
         stroke = payload.get("stroke")
         mode.submit_stroke(room["round"], player_id, stroke)
-        await send_event(websocket, "round:drawing:stroke:accepted", {"stroke": stroke})
+        await broadcast(room, "round:drawing:stroke", {"playerId": player_id, "stroke": stroke})
     elif event == "round:vote" and room["modeId"] in ("aware-imposter", "unaware-imposter", "drawing-imposter"):
         if room["phase"] != "voting":
             raise ValueError("Voting is not open")
-        mode.submit_vote(room["round"], player_id, payload.get("targetId"))
+        if not any(player["id"] == player_id for player in active_players(room)):
+            raise ValueError("Only active players can vote")
+        target_id = payload.get("targetId")
+        if not any(player["id"] == target_id for player in active_players(room)):
+            raise ValueError("Vote target is not an active player")
+        mode.submit_vote(room["round"], player_id, target_id)
         advance_after_votes(room)
         await broadcast(room)
         if room["phase"] == "results":
@@ -224,18 +229,26 @@ async def handle_event(websocket, event, payload):
     elif event == "round:drawing" and room["modeId"] == "drawing-imposter":
         if room["phase"] != "drawing":
             raise ValueError("Drawing is no longer open")
+        if not any(player["id"] == player_id for player in active_players(room)):
+            raise ValueError("Only active players can submit a drawing")
         mode.submit_drawing(room["round"], player_id, payload.get("drawing"))
         if len(room["round"]["drawings"]) == len(active_players(room)):
             room["phase"] = "voting"
         await broadcast(room)
     elif event == "round:guess-lie-statements" and room["modeId"] == "guess-the-lie":
+        if not any(player["id"] == player_id for player in active_players(room)):
+            raise ValueError("Only active players can submit statements")
         mode.submit_statements(room["round"], player_id, payload.get("statements"))
         if len(room["round"]["statements"]) == len(active_players(room)):
             room["phase"] = "voting"
         await broadcast(room)
     elif event == "round:guess-lie-vote" and room["modeId"] == "guess-the-lie":
+        if room["phase"] != "voting":
+            raise ValueError("Voting is not open")
+        if not any(player["id"] == player_id for player in active_players(room)):
+            raise ValueError("Only active players can vote")
         mode.submit_vote(room["round"], player_id, payload.get("targetId"), payload.get("statementIndex"))
-        if len(room["round"]["votes"]) == len(room["players"]):
+        if len(room["round"]["votes"]) == len(active_players(room)):
             room["phase"] = "results"
             result = mode.resolve_round(room["round"])
             finalize_result(room, result)

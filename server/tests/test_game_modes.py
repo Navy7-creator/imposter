@@ -250,6 +250,14 @@ def test_drawing_imposter_round_resolves_after_drawings_and_votes():
     assert result["scores"]
 
 
+@pytest.mark.parametrize("mode", [aware_imposter, drawing_imposter])
+def test_imposter_votes_reject_unknown_targets(mode):
+    round_state = mode.create_round(PLAYERS, ["everyday-objects"])
+
+    with pytest.raises(ValueError, match="not part of this round"):
+        mode.submit_vote(round_state, PLAYERS[0]["id"], "missing-player")
+
+
 def test_guess_number_round_resolves_on_correct_guess():
     round_state = guess_number.create_round(PLAYERS)
     target_id = PLAYERS[1]["id"]

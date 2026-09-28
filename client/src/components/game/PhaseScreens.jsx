@@ -200,7 +200,7 @@ export function NeverSayDoAnswerScreen({ room, emit }) {
   );
 }
 
-export function DrawingImposterScreen({ assignment, room, emit }) {
+export function DrawingImposterScreen({ assignment, room, emit, liveDrawings = {}, currentPlayer }) {
   const [strokes, setStrokes] = useState([]);
   const [submitted, setSubmitted] = useState(false);
   const [color, setColor] = useState('#102b3f');
@@ -219,6 +219,7 @@ export function DrawingImposterScreen({ assignment, room, emit }) {
         <button type="button" className="secondary tool-button" onClick={() => setStrokes((current) => current.slice(0, -1))} disabled={submitted || !strokes.length}>Undo stroke</button>
       </div>
       <DrawingCanvas strokes={strokes} disabled={submitted} color={color} eraser={eraser} onStroke={(stroke) => emit('round:drawing:stroke', { stroke })} setStrokes={setStrokes} />
+      {Object.entries(liveDrawings).filter(([playerId]) => playerId !== currentPlayer?.id).map(([playerId, remoteStrokes]) => <div className="remote-drawing" key={playerId}><p className="eyebrow">{room.players.find((player) => player.id === playerId)?.name || 'Player'} is drawing</p><DrawingCanvas strokes={remoteStrokes} readOnly /></div>)}
       <div className="drawing-actions">
         <button className="secondary" onClick={() => { setStrokes([]); emit('round:drawing:stroke', { stroke: { type: 'clear' } }); }} disabled={submitted}>Clear</button>
         <button className="primary" onClick={() => { emit('round:drawing', { drawing: JSON.stringify(strokes) }); setSubmitted(true); }} disabled={submitted || !strokes.length}>Submit drawing <span>→</span></button>
@@ -265,7 +266,7 @@ function DrawingCanvas({ strokes, setStrokes, onStroke, color = '#102b3f', erase
       const ratio = window.devicePixelRatio || 1;
       canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
       canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
-      canvas.getContext('2d').scale(ratio, ratio);
+      canvas.getContext('2d').setTransform(ratio, 0, 0, ratio, 0, 0);
       render();
     };
     resize();
@@ -300,7 +301,7 @@ function DrawingCanvas({ strokes, setStrokes, onStroke, color = '#102b3f', erase
     const strokeId = crypto.randomUUID();
     const point = pointFromEvent(event);
     activeStroke.current = strokeId;
-    setStrokes((current) => [...current, { strokeId, points: [point] }]);
+    setStrokes((current) => [...current, { strokeId, points: [point], color, erase: eraser }]);
     onStroke({ type: 'start', strokeId, point, color, erase: eraser });
   }} onPointerMove={move} onPointerUp={end} onPointerCancel={end} />;
 }
@@ -481,5 +482,5 @@ function Scoreboard({ room, scores = {} }) {
 }
 
 function ResultActions({ playAgain, chooseAnotherGame, exitGame }) {
-  return <div className="result-actions"><button className="primary" onClick={playAgain}>Play again <span>→</span></button><button className="secondary" onClick={chooseAnotherGame}>Choose game</button><button className="secondary" onClick={exitGame}>Exit game</button></div>;
+  return <div className="result-actions"><button className="primary" onClick={playAgain}>Next Round <span>→</span></button><button className="secondary" onClick={chooseAnotherGame}>Change Game</button><button className="secondary" onClick={exitGame}>Leave Game</button></div>;
 }

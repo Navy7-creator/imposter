@@ -20,7 +20,7 @@ export default function WelcomeScreen({
     <main className={`shell theme-${theme}`}>
       <div className="masthead">
         <span className="mark">IF</span>
-        <span>IMPOSTER & FRIENDS</span>
+        <span>IF IMPOSTER AND FRIENDS</span>
       </div>
 
       <section className="join-panel">

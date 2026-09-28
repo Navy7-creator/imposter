@@ -8,6 +8,9 @@ export default function App({ socket }) {
   const [assignment, setAssignment] = useState(null);
   const [results, setResults] = useState(null);
   const [personalResults, setPersonalResults] = useState({});
+  const [showSplash, setShowSplash] = useState(true);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [liveDrawings, setLiveDrawings] = useState({});
 
   // Player form + session values used before joining a room.
   const [form, setForm] = useState(() => ({
@@ -29,12 +32,35 @@ export default function App({ socket }) {
   const [theme, setTheme] = useState(() => localStorage.getItem('imposter-theme') || 'neon-canteen');
 
   useEffect(() => {
-    socket.on('room:joined', ({ room: joinedRoom }) => setRoom(joinedRoom));
-    socket.on('room:updated', setRoom);
-    socket.on('round:assignment', setAssignment);
-    socket.on('round:results', setResults);
-    socket.on('round:personal-results', setPersonalResults);
-  }, [socket]);
+    const joined = ({ room: joinedRoom }) => { setRoom(joinedRoom); setLiveDrawings(joinedRoom.liveDrawings || {}); };
+    const updated = (nextRoom) => { setRoom(nextRoom); setLiveDrawings(nextRoom.liveDrawings || {}); };
+    const assigned = (nextAssignment) => setAssignment(nextAssignment);
+    const roundResults = (nextResults) => setResults(nextResults);
+    const personal = (nextResults) => setPersonalResults(nextResults);
+    const drawingStroke = ({ playerId, stroke }) => {
+      if (playerId === form.playerId) return;
+      setLiveDrawings((current) => {
+        if (stroke?.type === 'clear') return { ...current, [playerId]: [] };
+        if (stroke?.type === 'start') return { ...current, [playerId]: [...(current[playerId] || []), { strokeId: stroke.strokeId, points: [stroke.point], color: stroke.color, erase: stroke.erase }] };
+        if (stroke?.type === 'move') return { ...current, [playerId]: (current[playerId] || []).map((item) => item.strokeId === stroke.strokeId ? { ...item, points: [...item.points, stroke.point] } : item) };
+        return current;
+      });
+    };
+    socket.on('room:joined', joined);
+    socket.on('room:updated', updated);
+    socket.on('round:assignment', assigned);
+    socket.on('round:results', roundResults);
+    socket.on('round:personal-results', personal);
+    socket.on('round:drawing:stroke', drawingStroke);
+    return () => {
+      socket.off('room:joined', joined);
+      socket.off('room:updated', updated);
+      socket.off('round:assignment', assigned);
+      socket.off('round:results', roundResults);
+      socket.off('round:personal-results', personal);
+      socket.off('round:drawing:stroke', drawingStroke);
+    };
+  }, [socket, form.playerId]);
 
 
   // Shared socket helper keeps all event calls consistent and error-aware.
@@ -80,19 +106,23 @@ export default function App({ socket }) {
   const leaveRoom = async () => {
     const response = await emit('room:leave');
     if (!response?.error) {
+      setConfirmLeave(false);
+      setShowSplash(false);
       setRoom(null);
       setAssignment(null);
       setResults(null);
+      setLiveDrawings({});
       socket.disconnect();
     }
   };
+  const requestLeave = () => setConfirmLeave(true);
   const returnToLobby = () => emit('room:return-lobby');
   const playAgain = () => emit('room:play-again');
   const chooseAnotherGame = async () => {
     await emit('room:return-lobby');
     setSetupStep('game');
   };
-  const exitGame = () => emit('room:exit-game');
+  const exitGame = requestLeave;
   const vote = (targetId) => emit('round:vote', { targetId });
   const chooseGame = async (modeId) => {
     await emit('room:mode', { modeId });
@@ -119,6 +149,10 @@ export default function App({ socket }) {
     localStorage.setItem('imposter-avatar-color', avatarColor);
   };
 
+  if (showSplash && !room) {
+    return <SplashScreen onPlay={() => setShowSplash(false)} />;
+  }
+
   if (!room) {
     return (
       <WelcomeScreen
@@ -141,7 +175,8 @@ export default function App({ socket }) {
   const currentPlayer = room.players.find((player) => player.id === form.playerId);
 
   return (
-    <RoomScreen
+    <>
+      <RoomScreen
       room={room}
       assignment={assignment}
       results={results}
@@ -160,12 +195,23 @@ export default function App({ socket }) {
       submitDescription={submitDescription}
       vote={vote}
       emit={emit}
-      leaveRoom={leaveRoom}
+      leaveRoom={requestLeave}
       returnToLobby={returnToLobby}
       playAgain={playAgain}
       chooseAnotherGame={chooseAnotherGame}
-      exitGame={exitGame}
-    />
+        exitGame={exitGame}
+        liveDrawings={liveDrawings}
+      />
+      {confirmLeave && <LeaveDialog cancel={() => setConfirmLeave(false)} leave={leaveRoom} />}
+    </>
   );
+}
+
+function SplashScreen({ onPlay }) {
+  return <main className="splash theme-neon-canteen"><div className="splash-art" aria-hidden="true"><span>👁️</span><span>🎭</span><span>🕵️</span></div><p className="splash-kicker">A party game of clues, chaos, and suspicion</p><h1>IF Imposter<br /><em>and Friends</em></h1><div className="splash-orbit" aria-hidden="true"><span>?</span><span>🤫</span><span>🔍</span></div><button className="primary splash-play" onClick={onPlay}>Play <span>→</span></button></main>;
+}
+
+function LeaveDialog({ cancel, leave }) {
+  return <div className="dialog-backdrop" role="presentation"><section className="dialog" role="dialog" aria-modal="true" aria-labelledby="leave-title"><p className="eyebrow">Exit room</p><h2 id="leave-title">Leave game?</h2><p>Are you sure you want to leave IF Imposter and Friends?</p><div><button className="secondary" onClick={cancel}>Cancel</button><button className="primary" onClick={leave}>Leave Game</button></div></section></div>;
 }
 
