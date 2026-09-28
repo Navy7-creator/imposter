@@ -180,7 +180,7 @@ def start_round(room, player_id):
         history.append(room["round"]["selection"])
     else:
         room["round"] = mode.create_round(players, room["categoryIds"])
-    room["phase"] = {"guess-number": "guessing", "never-say-do": "statements", "drawing-imposter": "drawing", "guess-the-lie": "statements", "mafia-mystery": "night"}.get(room["modeId"], "descriptions")
+    room["phase"] = {"guess-number": "guessing", "never-say-do": "questions", "drawing-imposter": "drawing", "guess-the-lie": "statements", "mafia-mystery": "night"}.get(room["modeId"], "descriptions")
 
 
 def set_mode(room, mode_id, player_id):

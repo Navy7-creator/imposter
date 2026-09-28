@@ -85,10 +85,11 @@ async def broadcast(room, event="room:updated", data=None):
 
 async def assignments(room):
     mode = get_game_mode(room["modeId"])
-    for player in room["players"]:
+    for player in active_players(room):
         websocket = connections.get(room["code"], {}).get(player["id"])
         if websocket:
-            await send_event(websocket, "round:assignment", mode.private_assignment(room["round"], player["id"]))
+            assignment = mode.private_assignment(room["round"], player["id"], active_players(room)) if room["modeId"] == "never-say-do" else mode.private_assignment(room["round"], player["id"])
+            await send_event(websocket, "round:assignment", assignment)
 
 
 def finalize_result(room, result):
@@ -209,20 +210,16 @@ async def handle_event(websocket, event, payload):
             await broadcast(room, "round:results", result)
         else:
             await broadcast(room)
-    elif event == "round:statement" and room["modeId"] == "never-say-do":
-        if room["phase"] != "statements":
-            raise ValueError("Statements are no longer open")
-        mode.submit_statement(room["round"], player_id, payload.get("statement", ""), payload.get("isTrue", False))
-        if len(room["round"]["statements"]) == len(active_players(room)):
-            room["phase"] = "voting"
-        await broadcast(room)
     elif event == "round:answer" and room["modeId"] == "never-say-do":
-        if room["phase"] != "voting":
-            raise ValueError("Voting is not open")
-        mode.submit_answers(room["round"], player_id, payload.get("answers"))
-        if len(room["round"]["answers"]) == len(active_players(room)):
+        if room["phase"] != "questions":
+            raise ValueError("Questions are no longer open")
+        if not any(player["id"] == player_id for player in active_players(room)):
+            raise ValueError("Only active players can answer")
+        mode.submit_answer(room["round"], player_id, payload.get("questionId"), payload.get("targetPlayerId"))
+        required_ids = {player["id"] for player in active_players(room)} & set(room["round"]["player_ids"])
+        if required_ids <= set(room["round"]["answers"]):
             room["phase"] = "results"
-            result = mode.resolve_round(room["round"])
+            result = mode.resolve_round(room["round"], room["players"])
             await broadcast_never_say_do_results(room, result)
         else:
             await broadcast(room)

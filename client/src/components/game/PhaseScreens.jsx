@@ -129,73 +129,47 @@ export function GuessNumberScreen({ assignment, room, emit }) {
   );
 }
 
-export function NeverSayDoStatementScreen({ assignment, room, emit }) {
-  const [statement, setStatement] = useState('');
-  const [isTrue, setIsTrue] = useState(false);
-  const target = room.players.find((player) => player.id === assignment?.targetId);
-
-  return (
-    <div className="content">
-      <p className="eyebrow">Never say/do</p>
-      <p className="selected-game">🎯 Your target<br /><strong>{target?.avatar} {target?.name}</strong></p>
-      <h1><em>{target?.name}</em> {assignment?.prompt}...</h1>
-      <p className="subtle">Write a statement to test the room.</p>
-
-      <textarea
-        value={statement}
-        onChange={(event) => setStatement(event.target.value)}
-        maxLength="160"
-        placeholder="Example: never says hello before coffee..."
-      />
-
-      <label>
-        Is this statement true?
-        <select value={String(isTrue)} onChange={(event) => setIsTrue(event.target.value === 'true')}>
-          <option value="false">False</option>
-          <option value="true">True</option>
-        </select>
-      </label>
-
-      <button
-        className="primary"
-        onClick={() => emit('round:statement', { statement, isTrue })}
-        disabled={!statement.trim()}
-      >
-        Submit statement
-      </button>
-    </div>
-  );
-}
-
-export function NeverSayDoAnswerScreen({ room, emit }) {
-  const [answers, setAnswers] = useState({});
+export function NeverSayDoQuestionScreen({ assignment, emit, currentPlayer }) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const statements = room.statements || [];
-  const answered = statements.filter((item) => typeof answers[item.statementId] === 'boolean').length;
+  const question = assignment?.question;
+  const options = question?.options || [];
+
+  const submit = async () => {
+    const response = await emit('round:answer', { questionId: question.id, targetPlayerId: selectedPlayerId });
+    if (!response?.error) setSubmitted(true);
+  };
 
   return (
-    <div className="content">
-      <p className="eyebrow">Guess the truth</p>
-      <h1>Which statements are true?</h1>
+    <div className="content never-say-do-screen">
+      <p className="eyebrow">Never Say / Do · Question</p>
+      <h1 className="question-heading">Who would never...</h1>
+      <p className="never-question">{question?.text?.replace(/^Who would never\s*/i, '').replace(/\?$/, '')}</p>
+      <p className="subtle">Choose the player you think fits the question.</p>
 
-      <div className="clues">
-        {statements.map((item, index) => (
-          <article className="statement-card" key={item.statementId}>
-            <p className="eyebrow">Statement #{index + 1}</p>
-            <p>{item.statement}</p>
-            <div className="answer-choice">
-              {[true, false].map((value) => (
-                <button key={String(value)} className={answers[item.statementId] === value ? 'selected' : ''} disabled={submitted} onClick={() => setAnswers((current) => ({ ...current, [item.statementId]: value }))}>
-                  {value ? 'True' : 'False'}
-                </button>
-              ))}
-            </div>
-          </article>
+      <div className="player-choice-list" role="radiogroup" aria-label="Choose a player">
+        {options.map((player) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selectedPlayerId === player.id}
+            className={`player-choice ${selectedPlayerId === player.id ? 'selected' : ''}`}
+            key={player.id}
+            onClick={() => setSelectedPlayerId(player.id)}
+            disabled={submitted}
+          >
+            <span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span>
+            <strong>{player.name}</strong>
+            <span className="choice-mark">{selectedPlayerId === player.id ? '✓' : '○'}</span>
+          </button>
         ))}
       </div>
-      <p className="counter">{answered} / {statements.length} answered</p>
-      <button className="primary" onClick={() => { emit('round:answer', { answers }); setSubmitted(true); }} disabled={submitted || answered !== statements.length}>Submit answers <span>→</span></button>
-      {submitted && <p className="counter">Answers submitted. Waiting for the other players...</p>}
+
+      <button className="primary" onClick={submit} disabled={submitted || !selectedPlayerId}>
+        {submitted ? 'Answer submitted' : 'Submit answer'} <span>→</span>
+      </button>
+      {submitted && <p className="counter">Answer locked. Waiting for the room...</p>}
+      {currentPlayer && <p className="counter">You are answering as {currentPlayer.name}.</p>}
     </div>
   );
 }
@@ -462,16 +436,17 @@ export function Results({ results, personalResults, room, returnToLobby, playAga
 function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAnotherGame, exitGame }) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
-  const statements = results?.statementResults || [];
-  const statement = statements[index];
-  const personal = personalResults?.[statement?.statementId];
-  const finished = index >= statements.length;
+  const questions = results?.questionResults || [];
+  const question = questions[index];
+  const personal = question ? personalResults?.[question.answers[0]?.playerId] : null;
+  const answer = question?.answers[0];
+  const finished = index >= questions.length;
 
   if (finished) {
-    return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} /></div>;
+    return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><p className="subtle">Every answer is in. Here is how the room played it.</p><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} /></div>;
   }
 
-  return <div className="content"><p className="eyebrow">Statement {index + 1} of {statements.length}</p><h1>{statement.statement}</h1>{!revealed ? <button className="primary" onClick={() => setRevealed(true)}>Reveal answer <span>↓</span></button> : <div className="reveal"><p>Actual answer: <strong>{statement.isTrue ? 'TRUE ✓' : 'FALSE ✓'}</strong></p><p>Your answer: <strong>{personal?.answer ? 'TRUE' : 'FALSE'} {personal?.correct ? '✓' : '✕'}</strong></p><p>{personal?.correct ? '+1 point' : 'No point'}</p><p>Written by: <strong>{room.players.find((player) => player.id === statement.author)?.name || 'Player'}</strong></p><p>Group vote: TRUE {statement.voteDistribution.true} · FALSE {statement.voteDistribution.false}</p><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === statements.length - 1 ? 'Show scores' : 'Next statement'} <span>→</span></button></div>}</div>;
+  return <div className="content never-results"><p className="eyebrow">Question {index + 1} of {questions.length}</p><h1>Who would never...</h1><p className="never-question">{question.text.replace(/^Who would never\s*/i, '').replace(/\?$/, '')}</p>{!revealed ? <button className="primary" onClick={() => setRevealed(true)}>Reveal the room <span>↓</span></button> : <div className="reveal"><p>And the answer was...</p><h2 className="answer-reveal">🔥 {question.correctPlayerName}</h2><p><strong>{answer?.playerName || personal?.playerName || 'Player'}</strong> chose <strong>{answer?.selectedPlayerName || personal?.selectedPlayerName || 'nobody'}</strong> {answer?.correct ? '✓ +1' : '✕ +0'}</p><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === questions.length - 1 ? 'Show scores' : 'Next question'} <span>→</span></button></div>}</div>;
 }
 
 function Scoreboard({ room, scores = {} }) {

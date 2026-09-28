@@ -268,27 +268,67 @@ def test_guess_number_round_resolves_on_correct_guess():
     assert result["scores"][PLAYERS[0]["id"]] == 1
 
 
-def test_never_say_do_round_accepts_all_statements_and_answers():
+def test_never_say_do_assigns_private_questions_to_different_players():
     round_state = never_say_do.create_round(PLAYERS)
-    for index, player in enumerate(PLAYERS):
-        never_say_do.submit_statement(round_state, player["id"], f"Statement {index}", index % 2 == 0)
-    statement_ids = [item["statementId"] for item in round_state["statements"]]
-    for index, player in enumerate(PLAYERS):
-        never_say_do.submit_answers(round_state, player["id"], {statement_id: index % 2 == 0 for statement_id in statement_ids})
+    player_ids = {player["id"] for player in PLAYERS}
 
-    result = never_say_do.resolve_round(round_state)
-    assert len(result["statementResults"]) == 4
-    assert len(round_state["answers"]) == 4
+    assert set(round_state["questions"]) == player_ids
+    assert all(question["targetPlayerId"] != recipient_id for recipient_id, question in round_state["questions"].items())
+    assert {question["targetPlayerId"] for question in round_state["questions"].values()} == player_ids
+
+    for player in PLAYERS:
+        assignment = never_say_do.private_assignment(round_state, player["id"], PLAYERS)
+        assert assignment["question"]["id"] == round_state["questions"][player["id"]]["id"]
+        assert "correctPlayerId" not in assignment["question"]
 
 
-def test_never_say_do_rejects_incomplete_answers():
+def test_never_say_do_scores_only_the_server_known_target():
     round_state = never_say_do.create_round(PLAYERS)
-    never_say_do.submit_statement(round_state, PLAYERS[0]["id"], "A statement", True)
-    never_say_do.submit_statement(round_state, PLAYERS[1]["id"], "Another statement", False)
-    statement_id = round_state["statements"][0]["statementId"]
+    player_id = PLAYERS[0]["id"]
+    question = round_state["questions"][player_id]
 
-    with pytest.raises(ValueError, match="Answer every statement exactly once"):
-        never_say_do.submit_answers(round_state, PLAYERS[0]["id"], {statement_id: True})
+    never_say_do.submit_answer(round_state, player_id, question["id"], question["targetPlayerId"])
+
+    assert round_state["scores"][player_id] == 1
+    assert round_state["answers"][player_id]["correct"] is True
+
+
+def test_never_say_do_rejects_invalid_question_and_duplicate_answers():
+    round_state = never_say_do.create_round(PLAYERS)
+    player_id = PLAYERS[0]["id"]
+    question = round_state["questions"][player_id]
+
+    with pytest.raises(ValueError, match="current question"):
+        never_say_do.submit_answer(round_state, player_id, "wrong-question", PLAYERS[1]["id"])
+    with pytest.raises(ValueError, match="You cannot select yourself"):
+        never_say_do.submit_answer(round_state, player_id, question["id"], player_id)
+
+    never_say_do.submit_answer(round_state, player_id, question["id"], question["targetPlayerId"])
+    with pytest.raises(ValueError, match="already submitted"):
+        never_say_do.submit_answer(round_state, player_id, question["id"], question["targetPlayerId"])
+
+
+def test_public_room_hides_never_say_do_questions_and_correct_targets():
+    room = {
+        "code": "TEST-NEVER",
+        "phase": "questions",
+        "modeId": "never-say-do",
+        "categoryIds": ["everyday-objects"],
+        "clueMode": "text",
+        "players": [
+            {**player, "isAdmin": index == 0}
+            for index, player in enumerate(PLAYERS)
+        ],
+        "round": never_say_do.create_round(PLAYERS),
+        "chat": [],
+        "settings": {},
+    }
+
+    public_state = public_room(room)
+
+    assert "questions" not in public_state
+    assert "targetPlayerId" not in public_state
+    assert public_state["answersSubmitted"] == 0
 
 
 def test_guess_the_lie_round_accepts_statements_and_votes():

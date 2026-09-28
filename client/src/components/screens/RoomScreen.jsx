@@ -10,8 +10,7 @@ import {
   Voting,
   Results,
   GuessNumberScreen,
-  NeverSayDoStatementScreen,
-  NeverSayDoAnswerScreen,
+  NeverSayDoQuestionScreen,
   DrawingImposterScreen,
   GuessTheLieStatementScreen,
   GuessTheLieVoteScreen,
@@ -97,12 +96,8 @@ export default function RoomScreen({
           <GuessNumberScreen assignment={assignment} room={room} emit={emit} />
         )}
 
-        {room.phase === 'statements' && room.modeId === 'never-say-do' && (
-          <NeverSayDoStatementScreen assignment={assignment} room={room} emit={emit} />
-        )}
-
-        {room.phase === 'voting' && room.modeId === 'never-say-do' && (
-          <NeverSayDoAnswerScreen room={room} emit={emit} />
+        {room.phase === 'questions' && room.modeId === 'never-say-do' && (
+          <NeverSayDoQuestionScreen assignment={assignment} room={room} emit={emit} currentPlayer={currentPlayer} />
         )}
 
         {room.phase === 'drawing' && room.modeId === 'drawing-imposter' && (
