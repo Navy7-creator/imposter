@@ -35,7 +35,7 @@ imposter-object/
 | --- | --- | --- | --- |
 | Imposter Object | Word and role | Clue, vote | Deduction or successful bluff |
 | Guess the Number | Secret number | Guess another player | 100 points for an exact guess |
-| Never Say/Do | Target and prompt | Statement, true/false answer | 50 points for a correct answer plus creativity bonus |
+| Never Say/Do | Private question assignment | Text answer, then predict the answer writer | 1 point for each correct writer prediction |
 | Word Spy | Secret word and spy | Natural use, catch claim | Spy earns stealth points; catches earn deduction points |
 | Emoji Clues | Hidden phrase | Emoji clue, guess | Clue quality and correct guesses |
 | Quick Debate | Assigned side | Argument, audience vote | Winner earns debate points |

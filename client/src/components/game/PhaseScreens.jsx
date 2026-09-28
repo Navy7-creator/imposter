@@ -129,47 +129,60 @@ export function GuessNumberScreen({ assignment, room, emit }) {
   );
 }
 
-export function NeverSayDoQuestionScreen({ assignment, emit, currentPlayer }) {
-  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+export function NeverSayDoQuestionScreen({ assignment, emit }) {
+  const [answer, setAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const question = assignment?.question;
-  const options = question?.options || [];
 
   const submit = async () => {
-    const response = await emit('round:answer', { questionId: question.id, targetPlayerId: selectedPlayerId });
+    const response = await emit('round:answer', { questionId: question.id, answer });
     if (!response?.error) setSubmitted(true);
   };
 
   return (
     <div className="content never-say-do-screen">
-      <p className="eyebrow">Never Say / Do · Question</p>
-      <h1 className="question-heading">Who would never...</h1>
-      <p className="never-question">{question?.text?.replace(/^Who would never\s*/i, '').replace(/\?$/, '')}</p>
-      <p className="subtle">Choose the player you think fits the question.</p>
-
-      <div className="player-choice-list" role="radiogroup" aria-label="Choose a player">
-        {options.map((player) => (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={selectedPlayerId === player.id}
-            className={`player-choice ${selectedPlayerId === player.id ? 'selected' : ''}`}
-            key={player.id}
-            onClick={() => setSelectedPlayerId(player.id)}
-            disabled={submitted}
-          >
-            <span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span>
-            <strong>{player.name}</strong>
-            <span className="choice-mark">{selectedPlayerId === player.id ? '✓' : '○'}</span>
-          </button>
-        ))}
-      </div>
-
-      <button className="primary" onClick={submit} disabled={submitted || !selectedPlayerId}>
+      <p className="eyebrow">Never Say / Do · Your secret answer</p>
+      <h1 className="question-heading">{question?.text}</h1>
+      <p className="subtle">Answer privately. Later, the room will try to guess who wrote it.</p>
+      <label className="answer-label">
+        Your answer
+        <textarea value={answer} onChange={(event) => setAnswer(event.target.value)} maxLength="160" placeholder="A playful answer..." disabled={submitted} />
+      </label>
+      <button className="primary" onClick={submit} disabled={submitted || !answer.trim()}>
         {submitted ? 'Answer submitted' : 'Submit answer'} <span>→</span>
       </button>
       {submitted && <p className="counter">Answer locked. Waiting for the room...</p>}
-      {currentPlayer && <p className="counter">You are answering as {currentPlayer.name}.</p>}
+    </div>
+  );
+}
+
+export function NeverSayDoPredictionScreen({ room, emit, predictionOwnership = [] }) {
+  const [index, setIndex] = useState(0);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [submitted, setSubmitted] = useState(new Set());
+  const questions = room.predictionQuestions || [];
+  const question = questions[index];
+  const isOwnAnswer = question && predictionOwnership.includes(question.questionId);
+  const done = !question;
+
+  const submit = async () => {
+    const response = await emit('round:prediction', { questionId: question.questionId, selectedPlayerId });
+    if (!response?.error) {
+      setSubmitted((current) => new Set(current).add(question.questionId));
+      setSelectedPlayerId('');
+      setIndex((current) => current + 1);
+    }
+  };
+
+  if (done) return <div className="content"><p className="eyebrow">Predictions locked</p><h1>Everyone has made their guess.</h1><p className="subtle">Waiting for the reveal...</p></div>;
+
+  return (
+    <div className="content never-say-do-screen">
+      <p className="eyebrow">Who would never? · {index + 1} / {questions.length}</p>
+      <h1 className="question-heading">{question.predictionText}</h1>
+      <p className="original-question">{question.text}</p>
+      <div className="answer-card"><span className="eyebrow">Secret answer</span><strong>{question.answer}</strong></div>
+      {isOwnAnswer ? <div className="own-answer-note"><strong>This question is about you.</strong><span>You cannot vote on this question. Move on to the next one.</span><button className="primary" onClick={() => { setIndex((current) => current + 1); setSelectedPlayerId(''); }}>Next answer <span>→</span></button></div> : <><p className="subtle">Who do you think this answer describes?</p><div className="player-choice-list" role="radiogroup" aria-label="Choose the question target">{question.options.map((player) => <button type="button" role="radio" aria-checked={selectedPlayerId === player.id} className={`player-choice ${selectedPlayerId === player.id ? 'selected' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}><span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span><strong>{player.name}</strong><span className="choice-mark">{selectedPlayerId === player.id ? '✓' : '○'}</span></button>)}</div><button className="primary" onClick={submit} disabled={!selectedPlayerId || submitted.has(question.questionId)}>Submit guess <span>→</span></button></>}
     </div>
   );
 }
@@ -438,15 +451,13 @@ function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAn
   const [revealed, setRevealed] = useState(false);
   const questions = results?.questionResults || [];
   const question = questions[index];
-  const personal = question ? personalResults?.[question.answers[0]?.playerId] : null;
-  const answer = question?.answers[0];
   const finished = index >= questions.length;
 
   if (finished) {
     return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><p className="subtle">Every answer is in. Here is how the room played it.</p><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} /></div>;
   }
 
-  return <div className="content never-results"><p className="eyebrow">Question {index + 1} of {questions.length}</p><h1>Who would never...</h1><p className="never-question">{question.text.replace(/^Who would never\s*/i, '').replace(/\?$/, '')}</p>{!revealed ? <button className="primary" onClick={() => setRevealed(true)}>Reveal the room <span>↓</span></button> : <div className="reveal"><p>And the answer was...</p><h2 className="answer-reveal">🔥 {question.correctPlayerName}</h2><p><strong>{answer?.playerName || personal?.playerName || 'Player'}</strong> chose <strong>{answer?.selectedPlayerName || personal?.selectedPlayerName || 'nobody'}</strong> {answer?.correct ? '✓ +1' : '✕ +0'}</p><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === questions.length - 1 ? 'Show scores' : 'Next question'} <span>→</span></button></div>}</div>;
+  return <div className="content never-results"><p className="eyebrow">Who would never? · {index + 1} of {questions.length}</p><h1>{question.predictionText}</h1><p className="original-question">{question.text}</p><div className="answer-card"><span className="eyebrow">The answer</span><strong>{question.answer}</strong></div>{!revealed ? <button className="primary" onClick={() => setRevealed(true)}>Reveal the target <span>↓</span></button> : <div className="reveal"><p>Correct target:</p><h2 className="answer-reveal">🎯 {question.correctTargetName}</h2><div className="prediction-results">{question.predictions.map((prediction) => <p key={prediction.predictorId}><strong>{prediction.predictorName}</strong> chose {prediction.selectedPlayerName} {prediction.correct ? '✓ +1' : '✕ +0'}</p>)}</div><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === questions.length - 1 ? 'Show scores' : 'Next answer'} <span>→</span></button></div>}</div>;
 }
 
 function Scoreboard({ room, scores = {} }) {

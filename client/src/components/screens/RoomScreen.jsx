@@ -11,6 +11,7 @@ import {
   Results,
   GuessNumberScreen,
   NeverSayDoQuestionScreen,
+  NeverSayDoPredictionScreen,
   DrawingImposterScreen,
   GuessTheLieStatementScreen,
   GuessTheLieVoteScreen,
@@ -45,6 +46,7 @@ export default function RoomScreen({
   chooseAnotherGame,
   exitGame,
   liveDrawings,
+  predictionOwnership,
 }) {
   return (
     <main className={`shell theme-${theme}`}>
@@ -97,7 +99,11 @@ export default function RoomScreen({
         )}
 
         {room.phase === 'questions' && room.modeId === 'never-say-do' && (
-          <NeverSayDoQuestionScreen assignment={assignment} room={room} emit={emit} currentPlayer={currentPlayer} />
+          <NeverSayDoQuestionScreen assignment={assignment} emit={emit} />
+        )}
+
+        {room.phase === 'predictions' && room.modeId === 'never-say-do' && (
+          <NeverSayDoPredictionScreen room={room} emit={emit} predictionOwnership={predictionOwnership} />
         )}
 
         {room.phase === 'drawing' && room.modeId === 'drawing-imposter' && (

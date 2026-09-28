@@ -105,6 +105,9 @@ def exit_game(room, player_id):
 
 def public_room(room):
     round_state = room.get("round")
+    prediction_questions = []
+    if room["modeId"] == "never-say-do" and room["phase"] == "predictions" and round_state:
+        prediction_questions = get_game_mode(room["modeId"]).public_predictions(round_state, active_players(room))
 
     descriptions = []
     raw_descriptions = round_state.get("descriptions", {}) if round_state else {}
@@ -147,6 +150,8 @@ def public_room(room):
         "guessesSubmitted": len(round_state.get("guesses", [])) if round_state and isinstance(round_state.get("guesses", []), list) else 0,
         "statements": statements,
         "answersSubmitted": len(round_state.get("answers", {})) if round_state and isinstance(round_state.get("answers", {}), dict) else 0,
+        "predictionsSubmitted": sum(len(item) for item in round_state.get("predictions", {}).values()) if round_state and isinstance(round_state.get("predictions", {}), dict) else 0,
+        "predictionQuestions": prediction_questions,
         "currentPlayerId": (
             round_state.get("player_order", [None])[round_state.get("turn_index", 0) % len(round_state.get("player_order", [None]))]
             if round_state and round_state.get("player_order")

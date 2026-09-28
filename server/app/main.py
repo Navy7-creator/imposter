@@ -92,6 +92,19 @@ async def assignments(room):
             await send_event(websocket, "round:assignment", assignment)
 
 
+async def prediction_ownership(room):
+    round_state = room["round"]
+    for player in active_players(room):
+        websocket = connections.get(room["code"], {}).get(player["id"])
+        if websocket:
+            question_ids = [
+                question_id
+                for question_id, question in round_state["questions"].items()
+                if question["targetPlayerId"] == player["id"] and question_id in round_state["answers"]
+            ]
+            await send_event(websocket, "round:prediction-ownership", {"questionIds": question_ids})
+
+
 def finalize_result(room, result):
     for player in room["players"]:
         player["score"] = player.get("score", 0) + result.get("scores", {}).get(player["id"], 0)
@@ -215,9 +228,36 @@ async def handle_event(websocket, event, payload):
             raise ValueError("Questions are no longer open")
         if not any(player["id"] == player_id for player in active_players(room)):
             raise ValueError("Only active players can answer")
-        mode.submit_answer(room["round"], player_id, payload.get("questionId"), payload.get("targetPlayerId"))
-        required_ids = {player["id"] for player in active_players(room)} & set(room["round"]["player_ids"])
-        if required_ids <= set(room["round"]["answers"]):
+        mode.submit_answer(room["round"], player_id, payload.get("questionId"), payload.get("answer"))
+        required_writers = {player["id"] for player in active_players(room)} & set(room["round"]["player_ids"])
+        answered_writers = {
+            question["answerWriterId"]
+            for question_id, question in room["round"]["questions"].items()
+            if question_id in room["round"]["answers"]
+        }
+        if required_writers <= answered_writers:
+            room["phase"] = "predictions"
+            await broadcast(room)
+            await prediction_ownership(room)
+        else:
+            await broadcast(room)
+    elif event == "round:prediction" and room["modeId"] == "never-say-do":
+        if room["phase"] != "predictions":
+            raise ValueError("Predictions are not open")
+        active_ids = {player["id"] for player in active_players(room)}
+        mode.submit_prediction(room["round"], player_id, payload.get("questionId"), payload.get("selectedPlayerId"), active_ids)
+        answered_questions = {
+            question_id
+            for question_id, answer in room["round"]["answers"].items()
+            if answer["answerWriterId"] in active_ids
+            and room["round"]["questions"][question_id]["targetPlayerId"] in active_ids
+        }
+        submitted_predictions = sum(len(predictions) for predictions in room["round"]["predictions"].values())
+        required_predictions = sum(
+            len(active_ids - {room["round"]["answers"][question_id]["answerWriterId"]})
+            for question_id in answered_questions
+        )
+        if submitted_predictions >= required_predictions:
             room["phase"] = "results"
             result = mode.resolve_round(room["round"], room["players"])
             await broadcast_never_say_do_results(room, result)

@@ -11,6 +11,7 @@ export default function App({ socket }) {
   const [showSplash, setShowSplash] = useState(true);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [liveDrawings, setLiveDrawings] = useState({});
+  const [predictionOwnership, setPredictionOwnership] = useState([]);
 
   // Player form + session values used before joining a room.
   const [form, setForm] = useState(() => ({
@@ -37,6 +38,7 @@ export default function App({ socket }) {
     const assigned = (nextAssignment) => setAssignment(nextAssignment);
     const roundResults = (nextResults) => setResults(nextResults);
     const personal = (nextResults) => setPersonalResults(nextResults);
+    const predictionOwner = ({ questionIds }) => setPredictionOwnership(questionIds || []);
     const drawingStroke = ({ playerId, stroke }) => {
       if (playerId === form.playerId) return;
       setLiveDrawings((current) => {
@@ -51,6 +53,7 @@ export default function App({ socket }) {
     socket.on('round:assignment', assigned);
     socket.on('round:results', roundResults);
     socket.on('round:personal-results', personal);
+    socket.on('round:prediction-ownership', predictionOwner);
     socket.on('round:drawing:stroke', drawingStroke);
     return () => {
       socket.off('room:joined', joined);
@@ -58,6 +61,7 @@ export default function App({ socket }) {
       socket.off('round:assignment', assigned);
       socket.off('round:results', roundResults);
       socket.off('round:personal-results', personal);
+      socket.off('round:prediction-ownership', predictionOwner);
       socket.off('round:drawing:stroke', drawingStroke);
     };
   }, [socket, form.playerId]);
@@ -112,6 +116,7 @@ export default function App({ socket }) {
       setAssignment(null);
       setResults(null);
       setLiveDrawings({});
+      setPredictionOwnership([]);
       socket.disconnect();
     }
   };
@@ -201,6 +206,7 @@ export default function App({ socket }) {
       chooseAnotherGame={chooseAnotherGame}
         exitGame={exitGame}
         liveDrawings={liveDrawings}
+        predictionOwnership={predictionOwnership}
       />
       {confirmLeave && <LeaveDialog cancel={() => setConfirmLeave(false)} leave={leaveRoom} />}
     </>

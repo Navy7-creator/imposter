@@ -271,41 +271,85 @@ def test_guess_number_round_resolves_on_correct_guess():
 def test_never_say_do_assigns_private_questions_to_different_players():
     round_state = never_say_do.create_round(PLAYERS)
     player_ids = {player["id"] for player in PLAYERS}
+    questions = list(round_state["questions"].values())
 
-    assert set(round_state["questions"]) == player_ids
-    assert all(question["targetPlayerId"] != recipient_id for recipient_id, question in round_state["questions"].items())
-    assert {question["targetPlayerId"] for question in round_state["questions"].values()} == player_ids
+    assert set(round_state["writer_questions"]) == player_ids
+    assert all(question["targetPlayerId"] != question["answerWriterId"] for question in questions)
+    assert {question["targetPlayerId"] for question in questions} == player_ids
 
     for player in PLAYERS:
         assignment = never_say_do.private_assignment(round_state, player["id"], PLAYERS)
-        assert assignment["question"]["id"] == round_state["questions"][player["id"]]["id"]
-        assert "correctPlayerId" not in assignment["question"]
+        question_id = round_state["writer_questions"][player["id"]]
+        assert assignment["question"]["id"] == question_id
+        assert "answerWriterId" not in assignment["question"]
+        assert "targetPlayerId" not in assignment["question"]
 
 
-def test_never_say_do_scores_only_the_server_known_target():
+@pytest.mark.parametrize("action, answer, expected", [
+    ({"verb": "drink", "predictionMode": "verb"}, "Coffee", "Who wouldn't drink Coffee?"),
+    ({"verb": "eat", "predictionMode": "verb"}, "Pineapple", "Who wouldn't eat Pineapple?"),
+    ({"verb": "say", "predictionMode": "say"}, "I was wrong", 'Who wouldn\'t say "I was wrong"?'),
+    ({"verb": "do", "predictionMode": "answer"}, "go skydiving", "Who would never go skydiving?"),
+])
+def test_never_say_do_builds_natural_prediction_text(action, answer, expected):
+    assert never_say_do.prediction_text(action, answer) == expected
+
+
+def test_never_say_do_stores_private_text_answers_without_scoring_yet():
     round_state = never_say_do.create_round(PLAYERS)
-    player_id = PLAYERS[0]["id"]
-    question = round_state["questions"][player_id]
+    writer_id = PLAYERS[0]["id"]
+    question_id = round_state["writer_questions"][writer_id]
 
-    never_say_do.submit_answer(round_state, player_id, question["id"], question["targetPlayerId"])
+    never_say_do.submit_answer(round_state, writer_id, question_id, "Pineapple")
 
-    assert round_state["scores"][player_id] == 1
-    assert round_state["answers"][player_id]["correct"] is True
+    assert round_state["scores"][writer_id] == 0
+    assert round_state["answers"][question_id]["answerWriterId"] == writer_id
+    assert round_state["answers"][question_id]["answer"] == "Pineapple"
 
 
 def test_never_say_do_rejects_invalid_question_and_duplicate_answers():
     round_state = never_say_do.create_round(PLAYERS)
-    player_id = PLAYERS[0]["id"]
-    question = round_state["questions"][player_id]
+    writer_id = PLAYERS[0]["id"]
+    question_id = round_state["writer_questions"][writer_id]
 
     with pytest.raises(ValueError, match="current question"):
-        never_say_do.submit_answer(round_state, player_id, "wrong-question", PLAYERS[1]["id"])
-    with pytest.raises(ValueError, match="You cannot select yourself"):
-        never_say_do.submit_answer(round_state, player_id, question["id"], player_id)
+        never_say_do.submit_answer(round_state, writer_id, "wrong-question", "Pineapple")
+    with pytest.raises(ValueError, match="1-160"):
+        never_say_do.submit_answer(round_state, writer_id, question_id, "")
 
-    never_say_do.submit_answer(round_state, player_id, question["id"], question["targetPlayerId"])
+    never_say_do.submit_answer(round_state, writer_id, question_id, "Pineapple")
     with pytest.raises(ValueError, match="already submitted"):
-        never_say_do.submit_answer(round_state, player_id, question["id"], question["targetPlayerId"])
+        never_say_do.submit_answer(round_state, writer_id, question_id, "Pizza")
+
+
+def test_never_say_do_scores_predictions_for_question_targets():
+    round_state = never_say_do.create_round(PLAYERS)
+    active_ids = {player["id"] for player in PLAYERS}
+
+    for player in PLAYERS:
+        question_id = round_state["writer_questions"][player["id"]]
+        never_say_do.submit_answer(round_state, player["id"], question_id, "A silly answer")
+
+    for question_id, question in round_state["questions"].items():
+        target_id = question["targetPlayerId"]
+        for predictor_id in active_ids - {target_id}:
+            never_say_do.submit_prediction(round_state, predictor_id, question_id, target_id, active_ids)
+
+    result = never_say_do.resolve_round(round_state, PLAYERS)
+
+    assert all(score == len(PLAYERS) - 1 for score in result["scores"].values())
+    assert all(item["correctTargetId"] == item["predictions"][0]["selectedPlayerId"] for item in result["questionResults"])
+
+
+def test_never_say_do_rejects_target_self_prediction():
+    round_state = never_say_do.create_round(PLAYERS)
+    active_ids = {player["id"] for player in PLAYERS}
+    target_id = round_state["questions"][next(iter(round_state["questions"]))]["targetPlayerId"]
+    question_id = next(question_id for question_id, question in round_state["questions"].items() if question["targetPlayerId"] == target_id)
+    never_say_do.submit_answer(round_state, round_state["questions"][question_id]["answerWriterId"], question_id, "Pineapple")
+
+    with pytest.raises(ValueError, match="about you"):
+        never_say_do.submit_prediction(round_state, target_id, question_id, target_id, active_ids)
 
 
 def test_public_room_hides_never_say_do_questions_and_correct_targets():

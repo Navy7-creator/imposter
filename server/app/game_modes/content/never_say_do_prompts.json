@@ -1,10 +1,14 @@
 [
-  "would never say",
-  "would never do",
-  "would secretly enjoy",
-  "would definitely try",
-  "would pretend to understand",
-  "would bring to a desert island",
-  "would turn into a dramatic story",
-  "would be caught doing at midnight"
+  {"category": "eat", "verb": "eat", "predictionMode": "verb"},
+  {"category": "drink", "verb": "drink", "predictionMode": "verb"},
+  {"category": "do", "verb": "do", "predictionMode": "answer"},
+  {"category": "say", "verb": "say", "predictionMode": "say"},
+  {"category": "try", "verb": "try", "predictionMode": "verb"},
+  {"category": "go", "verb": "go", "predictionMode": "go"},
+  {"category": "watch", "verb": "watch", "predictionMode": "verb"},
+  {"category": "wear", "verb": "wear", "predictionMode": "verb"},
+  {"category": "buy", "verb": "buy", "predictionMode": "verb"},
+  {"category": "choose", "verb": "choose", "predictionMode": "verb"},
+  {"category": "listen", "verb": "listen to", "predictionMode": "verb"},
+  {"category": "play", "verb": "play", "predictionMode": "verb"}
 ]

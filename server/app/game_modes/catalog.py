@@ -26,10 +26,10 @@ GAME_CATALOG = [
     {
         "id": "never-say-do",
         "name": "Never Say/Do",
-        "description": "Predict who would never say or do something.",
+        "description": "Answer a secret question, then predict who wrote each answer.",
         "minPlayers": 2,
         "maxPlayers": 10,
-        "phaseEvents": ["round:answer"],
+        "phaseEvents": ["round:answer", "round:prediction"],
     },
     {
         "id": "word-spy",

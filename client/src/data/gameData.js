@@ -11,7 +11,7 @@ export const games = [
   ['aware-imposter', 'Imposter Object', 'Find the player with the different word.'],
   ['unaware-imposter', 'Unaware Imposter', 'Find the player who has a different word unknowingly.'],
   ['guess-number', 'Guess the Number', 'Take turns guessing secret numbers.'],
-  ['never-say-do', 'Never Say/Do', 'Decide whether secret statements are true or false.'],
+  ['never-say-do', 'Never Say/Do', 'Answer privately, then guess who wrote each answer.'],
   ['drawing-imposter', 'Drawing Imposter', 'Draw a prompt while one player gets a different prompt.'],
   ['guess-the-lie', 'Guess the Lie', 'Find the lie hidden among three statements.'],
 ];
