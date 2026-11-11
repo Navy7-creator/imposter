@@ -38,6 +38,10 @@ export default function App({ socket }) {
     const assigned = (nextAssignment) => setAssignment(nextAssignment);
     const roundResults = (nextResults) => setResults(nextResults);
     const personal = (nextResults) => setPersonalResults(nextResults);
+    const chatMessage = (message) => setRoom((current) => {
+      if (!current || current.chat.some((item) => item.timestamp === message.timestamp && item.senderId === message.senderId)) return current;
+      return { ...current, chat: [...current.chat, message].slice(-100) };
+    });
     const predictionOwner = ({ questionIds }) => setPredictionOwnership(questionIds || []);
     const drawingStroke = ({ playerId, stroke }) => {
       if (playerId === form.playerId) return;
@@ -53,6 +57,7 @@ export default function App({ socket }) {
     socket.on('round:assignment', assigned);
     socket.on('round:results', roundResults);
     socket.on('round:personal-results', personal);
+    socket.on('room:chat', chatMessage);
     socket.on('round:prediction-ownership', predictionOwner);
     socket.on('round:drawing:stroke', drawingStroke);
     return () => {
@@ -61,6 +66,7 @@ export default function App({ socket }) {
       socket.off('round:assignment', assigned);
       socket.off('round:results', roundResults);
       socket.off('round:personal-results', personal);
+      socket.off('room:chat', chatMessage);
       socket.off('round:prediction-ownership', predictionOwner);
       socket.off('round:drawing:stroke', drawingStroke);
     };
@@ -220,4 +226,3 @@ function SplashScreen({ onPlay }) {
 function LeaveDialog({ cancel, leave }) {
   return <div className="dialog-backdrop" role="presentation"><section className="dialog" role="dialog" aria-modal="true" aria-labelledby="leave-title"><p className="eyebrow">Exit room</p><h2 id="leave-title">Leave game?</h2><p>Are you sure you want to leave IF Imposter and Friends?</p><div><button className="secondary" onClick={cancel}>Cancel</button><button className="primary" onClick={leave}>Leave Game</button></div></section></div>;
 }
-

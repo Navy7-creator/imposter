@@ -23,8 +23,21 @@ function createSocket() {
 			if (websocket && websocket.readyState !== WebSocket.CLOSED) return;
 			websocket = new WebSocket(websocketUrl);
 			websocket.onopen = flush;
+			websocket.onerror = () => {
+				responseCallbacks.forEach((callback) => callback({ error: 'Connection failed. Please try again.' }));
+				responseCallbacks.clear();
+			};
+			websocket.onclose = () => {
+				responseCallbacks.forEach((callback) => callback({ error: 'Connection closed. Please reconnect.' }));
+				responseCallbacks.clear();
+			};
 			websocket.onmessage = ({ data }) => {
-				const message = JSON.parse(data);
+				let message;
+				try {
+					message = JSON.parse(data);
+				} catch {
+					return;
+				}
 				if (message.event) {
 					eventListeners.get(message.event)?.forEach((listener) => listener(message.data));
 				}
@@ -37,7 +50,7 @@ function createSocket() {
 		},
 		emit(event, payload, callback) {
 			const id = String(nextId++);
-			responseCallbacks.set(id, callback);
+			responseCallbacks.set(id, callback || (() => {}));
 			const message = { id, event, payload };
 			if (websocket?.readyState === WebSocket.OPEN) websocket.send(JSON.stringify(message));
 			else pending.push(message);

@@ -18,6 +18,10 @@ def prediction_text(action, answer):
     return f"Who wouldn't {action['verb']} {clean_answer}?"
 
 
+def voting_text(action):
+    return f"Who would NEVER {action['verb']} this?"
+
+
 def create_round(players, _category_ids=None):
     player_ids = [player["id"] for player in players]
     questions = {}
@@ -31,20 +35,28 @@ def create_round(players, _category_ids=None):
         target = next(player for player in players if player["id"] == target_id)
         questions[question_id] = {
             "id": question_id,
+            "authorId": answer_writer_id,
+            "authorName": next(player for player in players if player["id"] == answer_writer_id)["name"],
+            "targetId": target_id,
+            "targetName": target["name"],
+            "actionVerb": action["verb"],
             "answerWriterId": answer_writer_id,
             "targetPlayerId": target_id,
             "category": action["category"],
             "verb": action["verb"],
             "predictionMode": action["predictionMode"],
             "text": f"What would {target['name']} never {action['verb']}?",
+            "votingText": voting_text(action),
         }
 
+    votes = {}
     return {
         "player_ids": player_ids,
         "questions": questions,
         "writer_questions": {question["answerWriterId"]: question_id for question_id, question in questions.items()},
         "answers": {},
-        "predictions": {},
+        "votes": votes,
+        "predictions": votes,
         "scores": {player["id"]: 0 for player in players},
     }
 
@@ -59,6 +71,9 @@ def private_assignment(round_state, player_id, players=None):
         "question": {
             "id": question["id"],
             "text": question["text"],
+            "targetId": question["targetId"],
+            "targetName": question["targetName"],
+            "actionVerb": question["actionVerb"],
         },
     }
 
@@ -74,6 +89,7 @@ def submit_answer(round_state, player_id, question_id, answer):
         raise ValueError("Answer must be 1-160 characters")
     round_state["answers"][question_id] = {
         "questionId": question_id,
+        "authorId": player_id,
         "answerWriterId": player_id,
         "answer": answer.strip(),
     }
@@ -88,12 +104,12 @@ def submit_prediction(round_state, predictor_id, question_id, selected_player_id
         raise ValueError("Only active players can predict")
     if selected_player_id not in active_player_ids:
         raise ValueError("Selected player is not active")
-    if question["targetPlayerId"] == predictor_id:
-        raise ValueError("This question is about you")
-    predictions = round_state["predictions"].setdefault(question_id, {})
-    if predictor_id in predictions:
+    if question["authorId"] == predictor_id:
+        raise ValueError("The answer author cannot vote on this question")
+    votes = round_state["votes"].setdefault(question_id, {})
+    if predictor_id in votes:
         raise ValueError("Prediction already submitted")
-    predictions[predictor_id] = selected_player_id
+    votes[predictor_id] = selected_player_id
 
 
 def resolve_round(round_state, players):
@@ -106,31 +122,38 @@ def resolve_round(round_state, players):
         if not answer:
             continue
         target_id = question["targetPlayerId"]
-        predictions = round_state["predictions"].get(question_id, {})
+        votes = round_state["votes"].get(question_id, {})
         prediction_results = []
-        for predictor_id, selected_player_id in predictions.items():
+        for predictor_id, selected_player_id in votes.items():
             correct = selected_player_id == target_id
             if correct:
-                round_state["scores"][predictor_id] += 1
+                round_state["scores"][predictor_id] += 100
             prediction_results.append({
                 "predictorId": predictor_id,
                 "predictorName": names.get(predictor_id, "Player"),
                 "selectedPlayerId": selected_player_id,
                 "selectedPlayerName": names.get(selected_player_id, "Player"),
                 "correct": correct,
-                "points": 1 if correct else 0,
+                "points": 100 if correct else 0,
             })
             personal_results.setdefault(predictor_id, {})[question_id] = {
                 "correct": correct,
-                "points": 1 if correct else 0,
+                "points": 100 if correct else 0,
             }
         question_results.append({
             "questionId": question_id,
             "text": question["text"],
+            "questionContext": question["text"],
+            "authorId": question["authorId"],
+            "authorName": question["authorName"],
+            "targetId": target_id,
+            "targetName": names.get(target_id, question["targetName"]),
+            "actionVerb": question["actionVerb"],
             "answer": answer["answer"],
-            "predictionText": prediction_text(question, answer["answer"]),
+            "predictionText": question["votingText"],
             "correctTargetId": target_id,
-            "correctTargetName": names.get(target_id, "Player"),
+            "correctTargetName": names.get(target_id, question["targetName"]),
+            "votes": votes,
             "predictions": prediction_results,
         })
 
@@ -153,7 +176,7 @@ def public_predictions(round_state, players):
         for player in players
     ]
     return [
-        {"questionId": question_id, "text": round_state["questions"][question_id]["text"], "predictionText": prediction_text(round_state["questions"][question_id], answer["answer"]), "answer": answer["answer"], "options": options}
+        {"questionId": question_id, "actionVerb": round_state["questions"][question_id]["actionVerb"], "predictionText": round_state["questions"][question_id]["votingText"], "answer": answer["answer"], "options": options}
         for question_id, answer in round_state["answers"].items()
         if answer["answerWriterId"] in active_ids and round_state["questions"][question_id]["targetPlayerId"] in active_ids
     ]

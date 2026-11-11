@@ -6,7 +6,7 @@ import pytest
 from app.game_modes import aware_imposter, drawing_imposter, guess_number, guess_the_lie, never_say_do
 from app.game_modes.content import choose, choose_imposter_round
 from app.game_modes.registry import MODES
-from app.lobby.room_manager import active_players, add_player, exit_game, leave_player, public_room, rooms, start_round
+from app.lobby.room_manager import active_players, add_chat_message, add_player, chat_recipients, exit_game, leave_player, public_room, rooms, start_round
 
 
 PLAYERS = [{"id": f"player-{index}", "name": f"Player {index}", "avatar": "sun", "connected": True} for index in range(4)]
@@ -260,12 +260,41 @@ def test_imposter_votes_reject_unknown_targets(mode):
 
 def test_guess_number_round_resolves_on_correct_guess():
     round_state = guess_number.create_round(PLAYERS)
-    target_id = PLAYERS[1]["id"]
-    guess_number.submit_guess(round_state, PLAYERS[0]["id"], target_id, round_state["numbers"][target_id])
+    target_id = PLAYERS[0]["id"]
+    guess_number.submit_guess(round_state, target_id, target_id, round_state["numbers"][target_id])
 
+    assert round_state["pending_confirmation"]["targetId"] == target_id
+    guardian_id = round_state["pending_confirmation"]["guardianId"]
+    guess_number.confirm_guess(round_state, guardian_id)
     result = guess_number.resolve_round(round_state)
     assert result["winnerId"] == PLAYERS[0]["id"]
+    assert result["winnerTargetId"] == PLAYERS[0]["id"]
     assert result["scores"][PLAYERS[0]["id"]] == 1
+
+
+def test_guess_number_assignment_contains_guarded_player_number_not_own_number():
+    round_state = guess_number.create_round(PLAYERS)
+    assignment = guess_number.private_assignment(round_state, PLAYERS[0]["id"])
+    guarded_id = round_state["guarded_player_id"][PLAYERS[0]["id"]]
+
+    assert assignment["guardedPlayerId"] == guarded_id
+    assert assignment["guardedPlayerName"] == round_state["player_names"][guarded_id]
+    assert assignment["number"] == round_state["numbers"][guarded_id]
+    assert assignment["number"] != round_state["numbers"][PLAYERS[0]["id"]]
+
+
+def test_guess_number_only_guardian_can_confirm():
+    round_state = guess_number.create_round(PLAYERS)
+    target_id = PLAYERS[0]["id"]
+    guesser_id = target_id
+    guess_number.submit_guess(round_state, guesser_id, target_id, round_state["numbers"][target_id])
+    guardian_id = round_state["pending_confirmation"]["guardianId"]
+
+    with pytest.raises(ValueError, match="guardian"):
+        guess_number.confirm_guess(round_state, guesser_id)
+
+    guess_number.confirm_guess(round_state, guardian_id)
+    assert round_state["winner_id"] == guesser_id
 
 
 def test_never_say_do_assigns_private_questions_to_different_players():
@@ -276,6 +305,11 @@ def test_never_say_do_assigns_private_questions_to_different_players():
     assert set(round_state["writer_questions"]) == player_ids
     assert all(question["targetPlayerId"] != question["answerWriterId"] for question in questions)
     assert {question["targetPlayerId"] for question in questions} == player_ids
+    assert all(question["authorId"] == question["answerWriterId"] for question in questions)
+    assert all(question["targetId"] == question["targetPlayerId"] for question in questions)
+    assert all(question["authorName"] in {player["name"] for player in PLAYERS} for question in questions)
+    assert all(question["targetName"] in {player["name"] for player in PLAYERS} for question in questions)
+    assert round_state["votes"] is round_state["predictions"]
 
     for player in PLAYERS:
         assignment = never_say_do.private_assignment(round_state, player["id"], PLAYERS)
@@ -332,24 +366,32 @@ def test_never_say_do_scores_predictions_for_question_targets():
 
     for question_id, question in round_state["questions"].items():
         target_id = question["targetPlayerId"]
-        for predictor_id in active_ids - {target_id}:
+        author_id = question["authorId"]
+        for predictor_id in active_ids - {author_id}:
             never_say_do.submit_prediction(round_state, predictor_id, question_id, target_id, active_ids)
 
     result = never_say_do.resolve_round(round_state, PLAYERS)
 
-    assert all(score == len(PLAYERS) - 1 for score in result["scores"].values())
+    assert all(score == (len(PLAYERS) - 1) * 100 for score in result["scores"].values())
     assert all(item["correctTargetId"] == item["predictions"][0]["selectedPlayerId"] for item in result["questionResults"])
+    assert all(item["authorName"] for item in result["questionResults"])
+    assert all(item["targetName"] for item in result["questionResults"])
+    assert all(item["points"] == 100 for item in result["questionResults"][0]["predictions"])
 
 
-def test_never_say_do_rejects_target_self_prediction():
+def test_never_say_do_allows_target_to_vote_but_rejects_author():
     round_state = never_say_do.create_round(PLAYERS)
     active_ids = {player["id"] for player in PLAYERS}
     target_id = round_state["questions"][next(iter(round_state["questions"]))]["targetPlayerId"]
     question_id = next(question_id for question_id, question in round_state["questions"].items() if question["targetPlayerId"] == target_id)
-    never_say_do.submit_answer(round_state, round_state["questions"][question_id]["answerWriterId"], question_id, "Pineapple")
+    author_id = round_state["questions"][question_id]["authorId"]
+    never_say_do.submit_answer(round_state, author_id, question_id, "Pineapple")
 
-    with pytest.raises(ValueError, match="about you"):
-        never_say_do.submit_prediction(round_state, target_id, question_id, target_id, active_ids)
+    never_say_do.submit_prediction(round_state, target_id, question_id, target_id, active_ids)
+    assert round_state["votes"][question_id][target_id] == target_id
+
+    with pytest.raises(ValueError, match="answer author"):
+        never_say_do.submit_prediction(round_state, author_id, question_id, target_id, active_ids)
 
 
 def test_public_room_hides_never_say_do_questions_and_correct_targets():
@@ -373,6 +415,83 @@ def test_public_room_hides_never_say_do_questions_and_correct_targets():
     assert "questions" not in public_state
     assert "targetPlayerId" not in public_state
     assert public_state["answersSubmitted"] == 0
+
+
+def test_chat_routes_public_whisper_and_excluded_messages():
+    room = {
+        "code": "TEST-CHAT",
+        "phase": "lobby",
+        "modeId": "aware-imposter",
+        "categoryIds": ["everyday-objects"],
+        "clueMode": "text",
+        "players": [],
+        "chat": [],
+        "round": None,
+        "settings": {},
+    }
+    for player in PLAYERS:
+        add_player(room, player.copy())
+
+    public = add_chat_message(room, "player-0", "Hello", "ALL")
+    whisper = add_chat_message(room, "player-0", "Secret", "WHISPER", ["player-1"])
+    excluded = add_chat_message(room, "player-0", "Cabal", "EXCLUDE", ["player-2"])
+
+    assert chat_recipients(room, public) == {"player-0", "player-1", "player-2", "player-3"}
+    assert chat_recipients(room, whisper) == {"player-0", "player-1"}
+    assert chat_recipients(room, excluded) == {"player-0", "player-1", "player-3"}
+    assert [item["text"] for item in public_room(room, "player-1")["chat"]] == ["Hello", "Secret", "Cabal"]
+    assert [item["text"] for item in public_room(room, "player-2")["chat"]] == ["Hello"]
+    assert [item["text"] for item in public_room(room, "player-3")["chat"]] == ["Hello", "Cabal"]
+
+
+def test_chat_rejects_invalid_audiences_and_recipients():
+    room = {
+        "code": "TEST-CHAT-VALIDATION",
+        "phase": "lobby",
+        "modeId": "aware-imposter",
+        "categoryIds": ["everyday-objects"],
+        "clueMode": "text",
+        "players": [],
+        "chat": [],
+        "round": None,
+        "settings": {},
+    }
+    for player in PLAYERS[:2]:
+        add_player(room, player.copy())
+
+    with pytest.raises(ValueError, match="one whisper"):
+        add_chat_message(room, "player-0", "Secret", "WHISPER", [])
+    with pytest.raises(ValueError, match="at least one"):
+        add_chat_message(room, "player-0", "Secret", "EXCLUDE", [])
+    with pytest.raises(ValueError, match="not active"):
+        add_chat_message(room, "player-0", "Secret", "WHISPER", ["missing"])
+
+
+def test_never_say_do_prediction_payload_does_not_spoil_author_or_target():
+    room = {
+        "code": "TEST-PREDICTION",
+        "phase": "predictions",
+        "modeId": "never-say-do",
+        "categoryIds": ["everyday-objects"],
+        "clueMode": "text",
+        "players": [{**player, "isAdmin": index == 0} for index, player in enumerate(PLAYERS)],
+        "round": never_say_do.create_round(PLAYERS),
+        "chat": [],
+        "settings": {},
+    }
+    round_state = room["round"]
+    question_id = next(iter(round_state["questions"]))
+    question = round_state["questions"][question_id]
+    never_say_do.submit_answer(round_state, question["authorId"], question_id, "Eat pineapple")
+
+    public_state = public_room(room)
+    payload = next(item for item in public_state["predictionQuestions"] if item["questionId"] == question_id)
+
+    assert payload["answer"] == "Eat pineapple"
+    assert payload["predictionText"] == f"Who would NEVER {question['actionVerb']} this?"
+    assert "text" not in payload
+    assert "targetName" not in payload
+    assert "authorName" not in payload
 
 
 def test_guess_the_lie_round_accepts_statements_and_votes():

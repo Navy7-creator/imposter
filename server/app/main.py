@@ -24,6 +24,7 @@ from app.lobby.room_manager import (
     set_clue_mode,
     set_mystery_settings,
     add_chat_message,
+    chat_recipients,
     active_players,
     exit_game,
     leave_player,
@@ -41,6 +42,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 connections = {}
+NEVER_SAY_DO_VOTING_TIMEOUT_SECONDS = 90
 
 
 @app.on_event("startup")
@@ -76,9 +78,9 @@ async def send_event(websocket, event, data):
 
 
 async def broadcast(room, event="room:updated", data=None):
-    message = {"event": event, "data": public_room(room) if data is None else data}
+    message_for = lambda player_id: {"event": event, "data": public_room(room, player_id) if data is None else data}
     await asyncio.gather(
-        *(websocket.send_json(message) for websocket in connections.get(room["code"], {}).values()),
+        *(websocket.send_json(message_for(player_id)) for player_id, websocket in connections.get(room["code"], {}).items()),
         return_exceptions=True,
     )
 
@@ -100,7 +102,7 @@ async def prediction_ownership(room):
             question_ids = [
                 question_id
                 for question_id, question in round_state["questions"].items()
-                if question["targetPlayerId"] == player["id"] and question_id in round_state["answers"]
+                if question["authorId"] == player["id"] and question_id in round_state["answers"]
             ]
             await send_event(websocket, "round:prediction-ownership", {"questionIds": question_ids})
 
@@ -124,6 +126,45 @@ async def broadcast_never_say_do_results(room, result):
             await send_event(websocket, "round:personal-results", player_result)
 
 
+def never_say_do_vote_counts(room):
+    active_ids = {player["id"] for player in active_players(room)}
+    round_state = room["round"]
+    answered_questions = {
+        question_id
+        for question_id, answer in round_state["answers"].items()
+        if answer["authorId"] in active_ids
+        and round_state["questions"][question_id]["targetId"] in active_ids
+    }
+    required_votes = sum(
+        len(active_ids - {round_state["answers"][question_id]["authorId"]})
+        for question_id in answered_questions
+    )
+    submitted_votes = sum(
+        len(set(votes) & active_ids)
+        for question_id, votes in round_state["votes"].items()
+        if question_id in answered_questions
+    )
+    return submitted_votes, required_votes
+
+
+async def finish_never_say_do_voting(room):
+    if room["phase"] != "predictions":
+        return False
+    submitted_votes, required_votes = never_say_do_vote_counts(room)
+    if submitted_votes < required_votes:
+        return False
+    room["phase"] = "results"
+    result = get_game_mode(room["modeId"]).resolve_round(room["round"], room["players"])
+    await broadcast_never_say_do_results(room, result)
+    return True
+
+
+async def expire_never_say_do_voting(room, round_state):
+    await asyncio.sleep(NEVER_SAY_DO_VOTING_TIMEOUT_SECONDS)
+    if room.get("round") is round_state:
+        await finish_never_say_do_voting(room)
+
+
 async def handle_event(websocket, event, payload):
     room_code = websocket.scope.get("room_code")
     player_id = websocket.scope.get("player_id")
@@ -143,7 +184,7 @@ async def handle_event(websocket, event, payload):
         add_player(room, player)
         websocket.scope["room_code"], websocket.scope["player_id"] = room["code"], player["id"]
         connections.setdefault(room["code"], {})[player["id"]] = websocket
-        await send_event(websocket, "room:joined", {"room": public_room(room), "player": player})
+        await send_event(websocket, "room:joined", {"room": public_room(room, player["id"]), "player": player})
         await broadcast(room)
         return
 
@@ -178,8 +219,25 @@ async def handle_event(websocket, event, payload):
         set_mystery_settings(room, payload.get("settings"), player_id)
         await broadcast(room)
     elif event == "room:chat":
-        add_chat_message(room, player_id, payload.get("message", ""))
-        await broadcast(room)
+        room_id = payload.get("roomId")
+        if room_id and room_id != room["code"]:
+            raise ValueError("Chat room does not match the current room")
+        message = add_chat_message(
+            room,
+            player_id,
+            payload.get("text", payload.get("message", "")),
+            payload.get("audienceType", "ALL"),
+            payload.get("targetIds", []),
+        )
+        recipients = chat_recipients(room, message)
+        await asyncio.gather(
+            *(
+                send_event(connections[room["code"]][recipient_id], "room:chat", message)
+                for recipient_id in recipients
+                if recipient_id in connections.get(room["code"], {})
+            ),
+            return_exceptions=True,
+        )
     elif event == "round:start":
         start_round(room, player_id)
         await assignments(room)
@@ -216,13 +274,24 @@ async def handle_event(websocket, event, payload):
             await broadcast(room, "round:results", result)
     elif event == "round:guess" and room["modeId"] == "guess-number":
         mode.submit_guess(room["round"], player_id, payload.get("targetId"), payload.get("guess"))
-        if room["round"]["winner_id"]:
+        if room["round"]["pending_confirmation"]:
+            room["phase"] = "confirmation"
+            await broadcast(room)
+        elif room["round"]["winner_id"]:
             room["phase"] = "results"
             result = mode.resolve_round(room["round"])
             finalize_result(room, result)
             await broadcast(room, "round:results", result)
         else:
             await broadcast(room)
+    elif event == "round:confirm-guess" and room["modeId"] == "guess-number":
+        if room["phase"] != "confirmation":
+            raise ValueError("There is no guess waiting for confirmation")
+        mode.confirm_guess(room["round"], player_id)
+        room["phase"] = "results"
+        result = mode.resolve_round(room["round"])
+        finalize_result(room, result)
+        await broadcast(room, "round:results", result)
     elif event == "round:answer" and room["modeId"] == "never-say-do":
         if room["phase"] != "questions":
             raise ValueError("Questions are no longer open")
@@ -239,6 +308,7 @@ async def handle_event(websocket, event, payload):
             room["phase"] = "predictions"
             await broadcast(room)
             await prediction_ownership(room)
+            asyncio.create_task(expire_never_say_do_voting(room, room["round"]))
         else:
             await broadcast(room)
     elif event == "round:prediction" and room["modeId"] == "never-say-do":
@@ -246,22 +316,7 @@ async def handle_event(websocket, event, payload):
             raise ValueError("Predictions are not open")
         active_ids = {player["id"] for player in active_players(room)}
         mode.submit_prediction(room["round"], player_id, payload.get("questionId"), payload.get("selectedPlayerId"), active_ids)
-        answered_questions = {
-            question_id
-            for question_id, answer in room["round"]["answers"].items()
-            if answer["answerWriterId"] in active_ids
-            and room["round"]["questions"][question_id]["targetPlayerId"] in active_ids
-        }
-        submitted_predictions = sum(len(predictions) for predictions in room["round"]["predictions"].values())
-        required_predictions = sum(
-            len(active_ids - {room["round"]["answers"][question_id]["answerWriterId"]})
-            for question_id in answered_questions
-        )
-        if submitted_predictions >= required_predictions:
-            room["phase"] = "results"
-            result = mode.resolve_round(room["round"], room["players"])
-            await broadcast_never_say_do_results(room, result)
-        else:
+        if not await finish_never_say_do_voting(room):
             await broadcast(room)
     elif event == "round:drawing" and room["modeId"] == "drawing-imposter":
         if room["phase"] != "drawing":
@@ -376,4 +431,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 transfer_admin(room)
             if room["phase"] not in ("lobby", "results", "ended") and len(active_players(room)) < 2:
                 room["phase"] = "ended"
+            if room["phase"] == "predictions":
+                await finish_never_say_do_voting(room)
             await broadcast(room)

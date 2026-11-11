@@ -1,3 +1,4 @@
+import datetime
 import secrets
 import base64
 
@@ -103,7 +104,7 @@ def exit_game(room, player_id):
     room["round"] = None
 
 
-def public_room(room):
+def public_room(room, viewer_id=None):
     round_state = room.get("round")
     prediction_questions = []
     if room["modeId"] == "never-say-do" and room["phase"] == "predictions" and round_state:
@@ -152,6 +153,14 @@ def public_room(room):
         "answersSubmitted": len(round_state.get("answers", {})) if round_state and isinstance(round_state.get("answers", {}), dict) else 0,
         "predictionsSubmitted": sum(len(item) for item in round_state.get("predictions", {}).values()) if round_state and isinstance(round_state.get("predictions", {}), dict) else 0,
         "predictionQuestions": prediction_questions,
+        "pendingConfirmation": (
+            {
+                "targetId": round_state["pending_confirmation"]["targetId"],
+                "guesserId": round_state["pending_confirmation"]["guesserId"],
+            }
+            if round_state and round_state.get("pending_confirmation")
+            else None
+        ),
         "currentPlayerId": (
             round_state.get("player_order", [None])[round_state.get("turn_index", 0) % len(round_state.get("player_order", [None]))]
             if round_state and round_state.get("player_order")
@@ -168,7 +177,10 @@ def public_room(room):
             player_id: list(strokes.values())
             for player_id, strokes in (round_state.get("live_drawings", {}) if round_state else {}).items()
         },
-        "chat": room["chat"][-50:],
+        "chat": [
+            message for message in room["chat"][-100:]
+            if viewer_id is None or viewer_id in chat_recipients(room, message)
+        ],
     }
 
 
@@ -232,14 +244,46 @@ def set_mystery_settings(room, settings, player_id):
     room["settings"].update({key: settings[key] for key in ("eliminateTies", "suddenDeath") if key in settings})
 
 
-def add_chat_message(room, player_id, message):
+def add_chat_message(room, player_id, message, audience_type="ALL", target_ids=None):
     cleaned = message.strip()
     if not cleaned or len(cleaned) > 240:
         raise ValueError("Chat messages must be 1-240 characters")
     player = next((item for item in room["players"] if item["id"] == player_id), None)
     if player is None:
         raise ValueError("Player is not in this room")
-    room["chat"].append({"playerId": player_id, "name": player["name"], "message": cleaned})
+    if audience_type not in ("ALL", "WHISPER", "EXCLUDE"):
+        raise ValueError("Invalid chat audience")
+    active_ids = {item["id"] for item in active_players(room)}
+    target_ids = list(dict.fromkeys(target_ids or []))
+    if any(target_id not in active_ids for target_id in target_ids):
+        raise ValueError("Chat recipient is not active")
+    if audience_type == "WHISPER" and len(target_ids) != 1:
+        raise ValueError("Choose one whisper recipient")
+    if audience_type == "EXCLUDE" and not target_ids:
+        raise ValueError("Choose at least one player to exclude")
+    message_data = {
+        "roomId": room["code"],
+        "senderId": player_id,
+        "senderName": player["name"],
+        "senderAvatar": player.get("avatar", "😀"),
+        "senderAvatarColor": player.get("avatarColor", "cyan"),
+        "text": cleaned,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "audienceType": audience_type,
+        "targetIds": target_ids,
+    }
+    room["chat"].append(message_data)
+    room["chat"] = room["chat"][-100:]
+    return message_data
+
+
+def chat_recipients(room, message):
+    active_ids = {player["id"] for player in active_players(room)}
+    if message["audienceType"] == "WHISPER":
+        return active_ids & ({message["senderId"]} | set(message["targetIds"]))
+    if message["audienceType"] == "EXCLUDE":
+        return active_ids - set(message["targetIds"])
+    return active_ids
 
 
 def advance_after_descriptions(room):

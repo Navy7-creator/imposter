@@ -4,12 +4,14 @@ import GamePicker from '../../features/games/GamePicker';
 import CategoryPicker from '../setup/CategoryPicker';
 import ClueModePicker from '../setup/ClueModePicker';
 import Lobby from '../game/Lobby';
+import Chatbox from '../game/Chatbox';
 import {
   Descriptions,
   Discussion,
   Voting,
   Results,
   GuessNumberScreen,
+  GuessNumberConfirmationScreen,
   NeverSayDoQuestionScreen,
   NeverSayDoPredictionScreen,
   DrawingImposterScreen,
@@ -98,12 +100,16 @@ export default function RoomScreen({
           <GuessNumberScreen assignment={assignment} room={room} emit={emit} />
         )}
 
+        {room.phase === 'confirmation' && room.modeId === 'guess-number' && (
+          <GuessNumberConfirmationScreen assignment={assignment} room={room} emit={emit} />
+        )}
+
         {room.phase === 'questions' && room.modeId === 'never-say-do' && (
           <NeverSayDoQuestionScreen assignment={assignment} emit={emit} />
         )}
 
         {room.phase === 'predictions' && room.modeId === 'never-say-do' && (
-          <NeverSayDoPredictionScreen room={room} emit={emit} predictionOwnership={predictionOwnership} />
+          <NeverSayDoPredictionScreen room={room} assignment={assignment} emit={emit} predictionOwnership={predictionOwnership} />
         )}
 
         {room.phase === 'drawing' && room.modeId === 'drawing-imposter' && (
@@ -151,6 +157,7 @@ export default function RoomScreen({
           </div>
         )}
       </section>
+      <Chatbox room={room} currentPlayer={currentPlayer} emit={emit} />
     </main>
   );
 }

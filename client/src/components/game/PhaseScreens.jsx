@@ -84,27 +84,16 @@ export function Voting({ room, currentPlayer, vote, error }) {
 }
 
 export function GuessNumberScreen({ assignment, room, emit }) {
-  const [targetId, setTargetId] = useState(room.players[0]?.id || '');
   const [guess, setGuess] = useState('');
 
   return (
     <div className="content">
-      <p className="eyebrow">Guess the number</p>
-      <h1>Your secret number is <em>{assignment?.number}</em></h1>
-      <p className="subtle">Pick a player and guess their number between 1 and 100.</p>
-
-      <label>
-        Target player
-        <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
-          {room.players
-            .filter((player) => !player.left && player.id !== assignment?.playerId)
-            .map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.name}
-              </option>
-            ))}
-        </select>
-      </label>
+      <p className="eyebrow">Chain Guess the Number</p>
+      <h1>🎯 NUMBER YOU ARE GUARDING <em>(NOT YOUR NUMBER)</em></h1>
+      <h2 className="guarded-player-heading">You hold the secret number for: {assignment?.guardedPlayerName}</h2>
+      <div className="guarded-number-card"><strong>{assignment?.guardedPlayerName}'s Secret Number: {assignment?.number}</strong></div>
+      <p className="guarded-number-warning">⚠️ DO NOT guess this number! Your goal is to deduce YOUR OWN number by asking questions. When {assignment?.guardedPlayerName} correctly guesses this number, confirm it below.</p>
+      <p className="subtle">Deduce your own number, then submit your guess. Your guardian will confirm it.</p>
 
       <label>
         Your guess
@@ -120,13 +109,34 @@ export function GuessNumberScreen({ assignment, room, emit }) {
 
       <button
         className="primary"
-        onClick={() => emit('round:guess', { targetId, guess })}
-        disabled={!targetId || !guess}
+        onClick={() => emit('round:guess', { targetId: assignment?.playerId, guess })}
+        disabled={!assignment?.playerId || !guess}
       >
-        Lock in guess
+        Submit guess
       </button>
     </div>
   );
+}
+
+export function GuessNumberConfirmationScreen({ assignment, room, emit }) {
+  const [confirming, setConfirming] = useState(false);
+  const pending = room.pendingConfirmation;
+  const isGuardian = assignment?.guardedPlayerId === pending?.targetId;
+  const targetName = pending ? room.players.find((player) => player.id === pending.targetId)?.name : 'the player';
+
+  if (!isGuardian) {
+    return <div className="content"><p className="eyebrow">Chain Guess the Number</p><h1>Guess pending confirmation.</h1><p className="subtle">The number guardian is checking whether {targetName} guessed correctly.</p></div>;
+  }
+
+  const confirm = async () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    await emit('round:confirm-guess');
+  };
+
+  return <div className="content"><p className="eyebrow">Chain Guess the Number · Confirm</p><h1>Did {targetName} guess correctly?</h1><p className="subtle">Confirm that {targetName} guessed {assignment?.number}.</p><button className={`guardian-confirm ${confirming ? 'guardian-confirm-ready' : ''}`} onClick={confirm}>{confirming ? `Tap again to confirm ${targetName}` : `✅ Confirm ${targetName} Guessed Correctly`}</button></div>;
 }
 
 export function NeverSayDoQuestionScreen({ assignment, emit }) {
@@ -156,13 +166,15 @@ export function NeverSayDoQuestionScreen({ assignment, emit }) {
   );
 }
 
-export function NeverSayDoPredictionScreen({ room, emit, predictionOwnership = [] }) {
+export function NeverSayDoPredictionScreen({ room, assignment, emit, predictionOwnership = [] }) {
   const [index, setIndex] = useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [submitted, setSubmitted] = useState(new Set());
   const questions = room.predictionQuestions || [];
   const question = questions[index];
-  const isOwnAnswer = question && predictionOwnership.includes(question.questionId);
+  const isOwnAnswer = question && (
+    assignment?.question?.id === question.questionId
+  );
   const done = !question;
 
   const submit = async () => {
@@ -176,13 +188,14 @@ export function NeverSayDoPredictionScreen({ room, emit, predictionOwnership = [
 
   if (done) return <div className="content"><p className="eyebrow">Predictions locked</p><h1>Everyone has made their guess.</h1><p className="subtle">Waiting for the reveal...</p></div>;
 
+  const cannotVoteMessage = 'You submitted this answer, so you cannot vote on it.';
+
   return (
     <div className="content never-say-do-screen">
-      <p className="eyebrow">Who would never? · {index + 1} / {questions.length}</p>
+      <p className="eyebrow">WHO WOULD NEVER? · {index + 1} / {questions.length}</p>
       <h1 className="question-heading">{question.predictionText}</h1>
-      <p className="original-question">{question.text}</p>
-      <div className="answer-card"><span className="eyebrow">Secret answer</span><strong>{question.answer}</strong></div>
-      {isOwnAnswer ? <div className="own-answer-note"><strong>This question is about you.</strong><span>You cannot vote on this question. Move on to the next one.</span><button className="primary" onClick={() => { setIndex((current) => current + 1); setSelectedPlayerId(''); }}>Next answer <span>→</span></button></div> : <><p className="subtle">Who do you think this answer describes?</p><div className="player-choice-list" role="radiogroup" aria-label="Choose the question target">{question.options.map((player) => <button type="button" role="radio" aria-checked={selectedPlayerId === player.id} className={`player-choice ${selectedPlayerId === player.id ? 'selected' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}><span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span><strong>{player.name}</strong><span className="choice-mark">{selectedPlayerId === player.id ? '✓' : '○'}</span></button>)}</div><button className="primary" onClick={submit} disabled={!selectedPlayerId || submitted.has(question.questionId)}>Submit guess <span>→</span></button></>}
+      <div className="answer-card"><strong>{question.answer}</strong></div>
+      {isOwnAnswer ? <div className="own-answer-note"><strong>{cannotVoteMessage}</strong><span>Move on to the next answer.</span><button className="primary" onClick={() => { setIndex((current) => current + 1); setSelectedPlayerId(''); }}>Next answer <span>→</span></button></div> : <><p className="subtle">Vote for the player you think this describes:</p><div className="player-choice-list" role="radiogroup" aria-label="Choose the question target">{question.options.map((player) => <button type="button" role="radio" aria-checked={selectedPlayerId === player.id} className={`player-choice ${selectedPlayerId === player.id ? 'selected' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}><span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span><strong>{player.name}</strong><span className="choice-mark">{selectedPlayerId === player.id ? '✓' : '○'}</span></button>)}</div><button className="primary" onClick={submit} disabled={!selectedPlayerId || submitted.has(question.questionId)}>Submit guess <span>→</span></button></>}
     </div>
   );
 }
@@ -418,6 +431,9 @@ export function Results({ results, personalResults, room, returnToLobby, playAga
   if (room.modeId === 'never-say-do') {
     return <NeverSayDoResults results={results} personalResults={personalResults} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />;
   }
+  if (room.modeId === 'guess-number') {
+    return <GuessNumberResults results={results} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />;
+  }
   if (room.modeId === 'mafia-mystery') {
     const culprits = Object.entries(results?.roles || {}).filter(([, role]) => role === 'culprit').map(([id]) => room.players.find((player) => player.id === id)?.name).filter(Boolean);
     return (
@@ -425,6 +441,24 @@ export function Results({ results, personalResults, room, returnToLobby, playAga
         <p className="eyebrow">Mystery Room · Case closed</p>
         <h1>{results?.winner === 'culprits' ? 'The culprits escaped.' : 'The innocents solved it.'}</h1>
         <p className="reveal">The culprits were <strong>{culprits.join(', ')}</strong>.</p>
+        <Scoreboard room={room} scores={results?.scores} />
+        <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
+      </div>
+    );
+  }
+
+  function GuessNumberResults({ results, room, playAgain, chooseAnotherGame, exitGame }) {
+    const winner = room.players.find((player) => player.id === results?.winnerId);
+    const target = room.players.find((player) => player.id === results?.winnerTargetId);
+    const sortedScores = Object.entries(results?.scores || {}).sort(([, left], [, right]) => right - left);
+    const rank = Math.max(1, sortedScores.findIndex(([id]) => id === results?.winnerId) + 1);
+    const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+
+    return (
+      <div className="content">
+        <p className="eyebrow">Chain Guess the Number · Scoreboard</p>
+        <h1>🎉 {target?.name || 'Player'} Verified! ({rank}{suffix} Place)</h1>
+        <p className="reveal"><strong>{winner?.name || 'Player'}</strong> correctly deduced their number, and the guardian confirmed it.</p>
         <Scoreboard room={room} scores={results?.scores} />
         <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
       </div>
@@ -457,7 +491,7 @@ function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAn
     return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><p className="subtle">Every answer is in. Here is how the room played it.</p><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} /></div>;
   }
 
-  return <div className="content never-results"><p className="eyebrow">Who would never? · {index + 1} of {questions.length}</p><h1>{question.predictionText}</h1><p className="original-question">{question.text}</p><div className="answer-card"><span className="eyebrow">The answer</span><strong>{question.answer}</strong></div>{!revealed ? <button className="primary" onClick={() => setRevealed(true)}>Reveal the target <span>↓</span></button> : <div className="reveal"><p>Correct target:</p><h2 className="answer-reveal">🎯 {question.correctTargetName}</h2><div className="prediction-results">{question.predictions.map((prediction) => <p key={prediction.predictorId}><strong>{prediction.predictorName}</strong> chose {prediction.selectedPlayerName} {prediction.correct ? '✓ +1' : '✕ +0'}</p>)}</div><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === questions.length - 1 ? 'Show scores' : 'Next answer'} <span>→</span></button></div>}</div>;
+  return <div className="content never-results"><p className="eyebrow">WHO WOULD NEVER? · {index + 1} of {questions.length}</p>{!revealed ? <><h1>The question was:</h1><p className="subtle">{question.questionContext}</p><div className="answer-card"><strong>{question.answer}</strong></div><button className="primary" onClick={() => setRevealed(true)}>Reveal the target <span>↓</span></button></> : <div className="reveal"><p>The question was: <strong>{question.questionContext}</strong></p><p>Target player: <strong>{question.targetName}</strong></p><p>Submitted by: <strong>{question.authorName}</strong></p><div className="prediction-results">{question.predictions.map((prediction) => <p key={prediction.predictorId}><span className={`avatar color-${room.players.find((player) => player.id === prediction.predictorId)?.avatarColor || 'cyan'}`}>{room.players.find((player) => player.id === prediction.predictorId)?.avatar || '😀'}</span> <strong>{prediction.predictorName}</strong> voted for <strong>{prediction.selectedPlayerName}</strong> {prediction.correct ? '✓ +100' : '✕ +0'}</p>)}</div><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === questions.length - 1 ? 'Show scores' : 'Next answer'} <span>→</span></button></div>}</div>;
 }
 
 function Scoreboard({ room, scores = {} }) {
