@@ -36,12 +36,8 @@ imposter-object/
 | Imposter Object | Word and role | Clue, vote | Deduction or successful bluff |
 | Guess the Number | Secret number | Guess another player | 100 points for an exact guess |
 | Never Say/Do | Private question assignment | Text answer, then predict the answer writer | 1 point for each correct writer prediction |
-| Word Spy | Secret word and spy | Natural use, catch claim | Spy earns stealth points; catches earn deduction points |
-| Emoji Clues | Hidden phrase | Emoji clue, guess | Clue quality and correct guesses |
-| Quick Debate | Assigned side | Argument, audience vote | Winner earns debate points |
 | Drawing Imposter | Drawing prompt | Drawing, vote | Correct detection plus drawing creativity |
 | Guess the Lie | Three private statements | Submit statements, vote | Correct lie detection and convincing bonus |
-| Mafia Mystery | Role and night state | Night action, day vote | Survival, investigation, and team victory points |
 
 Every mode can use the same WebSocket envelope:
 
