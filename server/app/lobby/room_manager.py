@@ -1,6 +1,7 @@
 import datetime
 import secrets
 import base64
+import time
 
 from app.game_modes.registry import get_game_mode
 
@@ -21,7 +22,7 @@ def create_code():
 def get_or_create_room(requested_code):
     code = (requested_code or "").strip().upper() or create_code()
     if code not in rooms:
-        rooms[code] = {"code": code, "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["everyday-objects"], "clueMode": "text", "players": [], "round": None, "roundHistory": [], "chat": [], "settings": {"eliminateTies": False, "suddenDeath": True}}
+        rooms[code] = {"code": code, "phase": "lobby", "modeId": "aware-imposter", "categoryIds": ["everyday-objects"], "clueMode": "text", "players": [], "round": None, "roundHistory": [], "chat": [], "lastResult": None, "settings": {"eliminateTies": False, "suddenDeath": True}}
     return rooms[code]
 
 
@@ -58,8 +59,21 @@ def add_player(room, player):
     return player
 
 
+def rejoin_player(room, player_id, name, avatar, avatar_color):
+    player = next((item for item in room["players"] if item["id"] == player_id), None)
+    if player is None or player.get("left"):
+        raise ValueError("Your room session has expired. Join again from the home screen.")
+    player.update({"name": str(name or "").strip()[:24] or player["name"], "avatar": avatar or player["avatar"], "avatarColor": avatar_color or player.get("avatarColor", "cyan"), "connected": True, "disconnected_at": None})
+    return player
+
+
 def active_players(room):
-    return [player for player in room["players"] if player.get("connected", True) and not player.get("left")]
+    now = time.monotonic()
+    return [
+        player for player in room["players"]
+        if not player.get("left")
+        and (player.get("connected", True) or now - player.get("disconnected_at", -31) < 30)
+    ]
 
 
 def transfer_admin(room):
@@ -93,6 +107,7 @@ def return_to_lobby(room, player_id):
         raise ValueError("Only the admin can return the room to the lobby")
     room["phase"] = "lobby"
     room["round"] = None
+    room["lastResult"] = None
 
 
 def exit_game(room, player_id):
@@ -102,6 +117,7 @@ def exit_game(room, player_id):
         raise ValueError("Only an active player can exit the game")
     room["phase"] = "lobby"
     room["round"] = None
+    room["lastResult"] = None
 
 
 def public_room(room, viewer_id=None):
@@ -145,6 +161,7 @@ def public_room(room, viewer_id=None):
         ],
         "activePlayerCount": len(active_players(room)),
         "gameEnded": room["phase"] == "ended",
+        "lastResult": room.get("lastResult"),
         "descriptions": descriptions,
         "votesSubmitted": len(round_state.get("votes", {})) if round_state and isinstance(round_state.get("votes", {}), dict) else 0,
         "votedPlayerIds": list(round_state.get("votes", {}).keys()) if round_state and isinstance(round_state.get("votes", {}), dict) else [],
@@ -191,6 +208,7 @@ def start_round(room, player_id):
     if not next((player for player in players if player["id"] == player_id and player["isAdmin"]), None):
         raise ValueError("Only the room admin can start the game")
     mode = get_game_mode(room["modeId"])
+    room["lastResult"] = None
     history = room.setdefault("roundHistory", [])
     if room["modeId"] in ("aware-imposter", "unaware-imposter", "drawing-imposter"):
         room["round"] = mode.create_round(players, room["categoryIds"], history)

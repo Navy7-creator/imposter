@@ -50,9 +50,9 @@ def resolve_round(round_state):
     if caught:
         for player_id in round_state["scores"]:
             if player_id != round_state["imposter_id"]:
-                round_state["scores"][player_id] += 100
+                round_state["scores"][player_id] += 300
     else:
-        round_state["scores"][round_state["imposter_id"]] += 150
+        round_state["scores"][round_state["imposter_id"]] += 500
     return {
         "accusedId": accused_id,
         "imposterId": round_state["imposter_id"],

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ScoringHelp from '../ScoringHelp';
 
 export function Descriptions({ assignment, room, value, setValue, submit, clueMode }) {
   const acting = clueMode === 'act';
@@ -210,7 +211,7 @@ export function DrawingImposterScreen({ assignment, room, emit, liveDrawings = {
     <div className="content">
       <p className="eyebrow">Drawing imposter</p>
       <h1>Your prompt is <em>{assignment?.prompt}</em></h1>
-      <p className="subtle">Draw your clue, then submit it when you are ready.</p>
+      <p className="subtle">Draw your clue on the canvas, then submit your drawing when you are ready.</p>
       <div className="drawing-toolbar" aria-label="Drawing tools">
         {['#102b3f', '#ef5350', '#ffcf56', '#65e0d2', '#5b8cff', '#ff77b7'].map((option) => (
           <button type="button" className={`drawing-color ${color === option && !eraser ? 'selected' : ''}`} style={{ background: option }} aria-label={`Use ${option} ink`} key={option} onClick={() => { setColor(option); setEraser(false); }} disabled={submitted} />
@@ -427,12 +428,12 @@ export function MafiaVoteScreen({ room, emit }) {
   return <div className="content"><p className="eyebrow">Mystery Room · Vote</p><h1>Who took <em>{room.script?.macguffin}</em>?</h1><div className="vote-list">{room.players.filter((player) => !player.left && room.alive.includes(player.id)).map((player) => <button key={player.id} onClick={() => emit('round:mafia-vote', { targetId: player.id })}><span className={`avatar color-${player.avatarColor || 'cyan'}`}>{player.avatar}</span><strong>{player.name}</strong><span>Vote →</span></button>)}</div><p className="counter">{room.votesSubmitted} / {room.alive.length} votes in</p></div>;
 }
 
-export function Results({ results, personalResults, room, returnToLobby, playAgain, chooseAnotherGame, exitGame }) {
+export function Results({ results, personalResults, room, returnToLobby, playAgain, chooseAnotherGame, exitGame, backHome }) {
   if (room.modeId === 'never-say-do') {
-    return <NeverSayDoResults results={results} personalResults={personalResults} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />;
+    return <NeverSayDoResults results={results} personalResults={personalResults} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} backHome={backHome} />;
   }
   if (room.modeId === 'guess-number') {
-    return <GuessNumberResults results={results} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />;
+    return <GuessNumberResults results={results} room={room} playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} backHome={backHome} />;
   }
   if (room.modeId === 'mafia-mystery') {
     const culprits = Object.entries(results?.roles || {}).filter(([, role]) => role === 'culprit').map(([id]) => room.players.find((player) => player.id === id)?.name).filter(Boolean);
@@ -442,7 +443,7 @@ export function Results({ results, personalResults, room, returnToLobby, playAga
         <h1>{results?.winner === 'culprits' ? 'The culprits escaped.' : 'The innocents solved it.'}</h1>
         <p className="reveal">The culprits were <strong>{culprits.join(', ')}</strong>.</p>
         <Scoreboard room={room} scores={results?.scores} />
-        <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
+        <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} backHome={backHome} />
       </div>
     );
   }
@@ -460,7 +461,7 @@ export function Results({ results, personalResults, room, returnToLobby, playAga
         <h1>🎉 {target?.name || 'Player'} Verified! ({rank}{suffix} Place)</h1>
         <p className="reveal"><strong>{winner?.name || 'Player'}</strong> correctly deduced their number, and the guardian confirmed it.</p>
         <Scoreboard room={room} scores={results?.scores} />
-        <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
+        <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} backHome={backHome} />
       </div>
     );
   }
@@ -475,12 +476,12 @@ export function Results({ results, personalResults, room, returnToLobby, playAga
       </p>
 
       <Scoreboard room={room} scores={results?.scores} />
-      <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} />
+      <ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} backHome={backHome} />
     </div>
   );
 }
 
-function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAnotherGame, exitGame }) {
+function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAnotherGame, exitGame, backHome }) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const questions = results?.questionResults || [];
@@ -488,19 +489,27 @@ function NeverSayDoResults({ results, personalResults, room, playAgain, chooseAn
   const finished = index >= questions.length;
 
   if (finished) {
-    return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><p className="subtle">Every answer is in. Here is how the room played it.</p><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} /></div>;
+    return <div className="content"><p className="eyebrow">Round complete</p><h1>The room has spoken.</h1><p className="subtle">Every answer is in. Here is how the room played it.</p><Scoreboard room={room} scores={results?.scores} /><ResultActions playAgain={playAgain} chooseAnotherGame={chooseAnotherGame} exitGame={exitGame} backHome={backHome} /></div>;
   }
 
   return <div className="content never-results"><p className="eyebrow">WHO WOULD NEVER? · {index + 1} of {questions.length}</p>{!revealed ? <><h1>The question was:</h1><p className="subtle">{question.questionContext}</p><div className="answer-card"><strong>{question.answer}</strong></div><button className="primary" onClick={() => setRevealed(true)}>Reveal the target <span>↓</span></button></> : <div className="reveal"><p>The question was: <strong>{question.questionContext}</strong></p><p>Target player: <strong>{question.targetName}</strong></p><p>Submitted by: <strong>{question.authorName}</strong></p><div className="prediction-results">{question.predictions.map((prediction) => <p key={prediction.predictorId}><span className={`avatar color-${room.players.find((player) => player.id === prediction.predictorId)?.avatarColor || 'cyan'}`}>{room.players.find((player) => player.id === prediction.predictorId)?.avatar || '😀'}</span> <strong>{prediction.predictorName}</strong> voted for <strong>{prediction.selectedPlayerName}</strong> {prediction.correct ? '✓ +100' : '✕ +0'}</p>)}</div><button className="primary" onClick={() => { setIndex((value) => value + 1); setRevealed(false); }}>{index === questions.length - 1 ? 'Show scores' : 'Next answer'} <span>→</span></button></div>}</div>;
 }
 
 function Scoreboard({ room, scores = {} }) {
-  return <div className="scores">{Object.entries(scores).map(([id, score]) => {
+  return <><div className="scores">{Object.entries(scores).map(([id, score]) => {
     const player = room.players.find((item) => item.id === id);
     return <div className={player?.left ? 'player-left' : ''} key={id}><span><span className={`avatar color-${player?.avatarColor || 'cyan'}`}>{player?.left ? '🏃' : player?.avatar}</span> {player?.name}{player?.left ? ' · Left' : ''}</span><strong>{score} pts</strong></div>;
-  })}</div>;
+  })}</div><ScoringHelp /></>;
 }
 
-function ResultActions({ playAgain, chooseAnotherGame, exitGame }) {
-  return <div className="result-actions"><button className="primary" onClick={playAgain}>Next Round <span>→</span></button><button className="secondary" onClick={chooseAnotherGame}>Change Game</button><button className="secondary" onClick={exitGame}>Leave Game</button></div>;
+function ResultActions({ playAgain, chooseAnotherGame, exitGame, backHome }) {
+  const [seconds, setSeconds] = useState(10);
+  React.useEffect(() => {
+    const timer = window.setInterval(() => setSeconds((value) => {
+      if (value <= 1) { window.clearInterval(timer); backHome(); return 0; }
+      return value - 1;
+    }), 1000);
+    return () => window.clearInterval(timer);
+  }, [backHome]);
+  return <><p className="return-countdown">Returning to home screen in {seconds} seconds...</p><div className="result-actions"><button className="primary" onClick={playAgain}>Next Round <span>→</span></button><button className="secondary" onClick={backHome}>Play Again / Back to Home</button><button className="secondary" onClick={chooseAnotherGame}>Change Game</button><button className="secondary" onClick={exitGame}>Leave Game</button></div></>;
 }

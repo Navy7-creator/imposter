@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import WelcomeScreen from './components/screens/WelcomeScreen';
 import RoomScreen from './components/screens/RoomScreen';
 
@@ -8,18 +8,22 @@ export default function App({ socket }) {
   const [assignment, setAssignment] = useState(null);
   const [results, setResults] = useState(null);
   const [personalResults, setPersonalResults] = useState({});
-  const [showSplash, setShowSplash] = useState(true);
+  const savedSession = (() => {
+    try { return JSON.parse(sessionStorage.getItem('imposter-session') || 'null'); } catch { return null; }
+  })();
+  const directRoom = new URLSearchParams(window.location.search).get('room')?.toUpperCase() || '';
+  const [showSplash, setShowSplash] = useState(!directRoom && !savedSession);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [liveDrawings, setLiveDrawings] = useState({});
   const [predictionOwnership, setPredictionOwnership] = useState([]);
 
   // Player form + session values used before joining a room.
   const [form, setForm] = useState(() => ({
-    code: new URLSearchParams(window.location.search).get('room')?.toUpperCase() || '',
-    name: '',
-    playerId: sessionStorage.getItem('imposter-tab-id') || crypto.randomUUID(),
-    avatar: localStorage.getItem('imposter-avatar') || '😀',
-    avatarColor: localStorage.getItem('imposter-avatar-color') || 'cyan',
+    code: directRoom || savedSession?.roomCode || '',
+    playerId: directRoom ? crypto.randomUUID() : savedSession?.playerId || sessionStorage.getItem('imposter-tab-id') || crypto.randomUUID(),
+    name: directRoom ? '' : savedSession?.playerName || '',
+    avatar: savedSession?.avatar || localStorage.getItem('imposter-avatar') || '😀',
+    avatarColor: savedSession?.avatarColor || localStorage.getItem('imposter-avatar-color') || 'cyan',
   }));
 
   // Round-specific values for submissions and errors.
@@ -28,13 +32,18 @@ export default function App({ socket }) {
 
   // Setup flow keeps the host's configuration steps easy to follow.
   const [setupStep, setSetupStep] = useState('game');
-  const [entryStep, setEntryStep] = useState('choice');
-  const [entryMode, setEntryMode] = useState('create');
+  const [entryStep, setEntryStep] = useState(directRoom || savedSession ? 'form' : 'choice');
+  const [entryMode, setEntryMode] = useState(directRoom || savedSession ? 'join' : 'create');
   const [theme, setTheme] = useState(() => localStorage.getItem('imposter-theme') || 'neon-canteen');
 
   useEffect(() => {
-    const joined = ({ room: joinedRoom }) => { setRoom(joinedRoom); setLiveDrawings(joinedRoom.liveDrawings || {}); };
-    const updated = (nextRoom) => { setRoom(nextRoom); setLiveDrawings(nextRoom.liveDrawings || {}); };
+    const joined = ({ room: joinedRoom, player }) => {
+      setRoom(joinedRoom);
+      setResults(joinedRoom.lastResult || null);
+      setLiveDrawings(joinedRoom.liveDrawings || {});
+      if (player) sessionStorage.setItem('imposter-session', JSON.stringify({ roomCode: joinedRoom.code, playerId: player.id, playerName: player.name, avatar: player.avatar, avatarColor: player.avatarColor }));
+    };
+    const updated = (nextRoom) => { setRoom(nextRoom); setResults(nextRoom.lastResult || null); setLiveDrawings(nextRoom.liveDrawings || {}); };
     const assigned = (nextAssignment) => setAssignment(nextAssignment);
     const roundResults = (nextResults) => setResults(nextResults);
     const personal = (nextResults) => setPersonalResults(nextResults);
@@ -60,6 +69,10 @@ export default function App({ socket }) {
     socket.on('room:chat', chatMessage);
     socket.on('round:prediction-ownership', predictionOwner);
     socket.on('round:drawing:stroke', drawingStroke);
+    if (!room && savedSession && !directRoom) {
+      socket.connect();
+      socket.emit('room:rejoin', { roomCode: savedSession.roomCode, playerId: form.playerId, name: form.name, avatar: form.avatar, avatarColor: form.avatarColor });
+    }
     return () => {
       socket.off('room:joined', joined);
       socket.off('room:updated', updated);
@@ -74,7 +87,7 @@ export default function App({ socket }) {
 
 
   // Shared socket helper keeps all event calls consistent and error-aware.
-  const emit = (event, payload = {}) =>
+  const emit = useCallback((event, payload = {}) =>
     new Promise((resolve) => {
       socket.emit(event, payload, (response) => {
         if (response?.error) {
@@ -84,7 +97,7 @@ export default function App({ socket }) {
         }
         resolve(response);
       });
-    });
+    }), [socket]);
 
   // Join flow is separated so it is easier to debug entry validation.
   const join = async (event) => {
@@ -123,6 +136,7 @@ export default function App({ socket }) {
       setResults(null);
       setLiveDrawings({});
       setPredictionOwnership([]);
+      sessionStorage.removeItem('imposter-session');
       socket.disconnect();
     }
   };
@@ -134,6 +148,16 @@ export default function App({ socket }) {
     setSetupStep('game');
   };
   const exitGame = requestLeave;
+  const backHome = useCallback(async () => {
+    await emit('room:leave');
+    sessionStorage.removeItem('imposter-session');
+    setRoom(null);
+    setResults(null);
+    setAssignment(null);
+    setShowSplash(false);
+    socket.disconnect();
+    window.history.replaceState({}, '', window.location.pathname);
+  }, [emit, socket]);
   const vote = (targetId) => emit('round:vote', { targetId });
   const chooseGame = async (modeId) => {
     await emit('room:mode', { modeId });
@@ -179,6 +203,7 @@ export default function App({ socket }) {
         changeAvatar={changeAvatar}
         changeAvatarColor={changeAvatarColor}
         join={join}
+        directInvite={Boolean(directRoom)}
       />
     );
   }
@@ -210,6 +235,7 @@ export default function App({ socket }) {
       returnToLobby={returnToLobby}
       playAgain={playAgain}
       chooseAnotherGame={chooseAnotherGame}
+      backHome={backHome}
         exitGame={exitGame}
         liveDrawings={liveDrawings}
         predictionOwnership={predictionOwnership}

@@ -15,6 +15,7 @@ export default function WelcomeScreen({
   changeAvatar,
   changeAvatarColor,
   join,
+  directInvite,
 }) {
   return (
     <main className={`shell theme-${theme}`}>
@@ -62,11 +63,11 @@ export default function WelcomeScreen({
           </div>
         ) : (
           <form noValidate onSubmit={join}>
-            <button type="button" className="back-link" onClick={() => setEntryStep('choice')}>
+            {!directInvite && <button type="button" className="back-link" onClick={() => setEntryStep('choice')}>
               ← Back
-            </button>
+            </button>}
 
-            <p className="eyebrow">{entryMode === 'join' ? 'Join a room' : 'Create a room'}</p>
+            <p className="eyebrow">{directInvite ? 'Join by invitation' : entryMode === 'join' ? 'Join a room' : 'Create a room'}</p>
 
             <label>
               Your name
@@ -84,7 +85,7 @@ export default function WelcomeScreen({
               setAvatarColor={changeAvatarColor}
             />
 
-            {entryMode === 'join' && (
+            {entryMode === 'join' && !directInvite && (
               <label>
                 Room code
                 <input
@@ -97,6 +98,7 @@ export default function WelcomeScreen({
                 />
               </label>
             )}
+            {directInvite && <p className="selected-game">Room invite ready · <strong>{form.code}</strong></p>}
 
             <button className="primary">
               {entryMode === 'join' ? 'Join the room' : 'Create the room'}

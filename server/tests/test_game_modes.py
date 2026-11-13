@@ -269,7 +269,8 @@ def test_guess_number_round_resolves_on_correct_guess():
     result = guess_number.resolve_round(round_state)
     assert result["winnerId"] == PLAYERS[0]["id"]
     assert result["winnerTargetId"] == PLAYERS[0]["id"]
-    assert result["scores"][PLAYERS[0]["id"]] == 1
+    assert result["scores"][PLAYERS[0]["id"]] == 500
+    assert result["scores"][guardian_id] == 50
 
 
 def test_guess_number_assignment_contains_guarded_player_number_not_own_number():
@@ -372,11 +373,11 @@ def test_never_say_do_scores_predictions_for_question_targets():
 
     result = never_say_do.resolve_round(round_state, PLAYERS)
 
-    assert all(score == (len(PLAYERS) - 1) * 100 for score in result["scores"].values())
+    assert all(score == (len(PLAYERS) - 1) * 300 for score in result["scores"].values())
     assert all(item["correctTargetId"] == item["predictions"][0]["selectedPlayerId"] for item in result["questionResults"])
     assert all(item["authorName"] for item in result["questionResults"])
     assert all(item["targetName"] for item in result["questionResults"])
-    assert all(item["points"] == 100 for item in result["questionResults"][0]["predictions"])
+    assert all(item["points"] == 300 for item in result["questionResults"][0]["predictions"])
 
 
 def test_never_say_do_allows_target_to_vote_but_rejects_author():

@@ -127,19 +127,21 @@ def resolve_round(round_state, players):
         for predictor_id, selected_player_id in votes.items():
             correct = selected_player_id == target_id
             if correct:
-                round_state["scores"][predictor_id] += 100
+                round_state["scores"][predictor_id] += 300
             prediction_results.append({
                 "predictorId": predictor_id,
                 "predictorName": names.get(predictor_id, "Player"),
                 "selectedPlayerId": selected_player_id,
                 "selectedPlayerName": names.get(selected_player_id, "Player"),
                 "correct": correct,
-                "points": 100 if correct else 0,
+                "points": 300 if correct else 0,
             })
             personal_results.setdefault(predictor_id, {})[question_id] = {
                 "correct": correct,
-                "points": 100 if correct else 0,
+                "points": 300 if correct else 0,
             }
+        if votes and not any(selected_player_id == target_id for selected_player_id in votes.values()):
+            round_state["scores"][question["authorId"]] += 150
         question_results.append({
             "questionId": question_id,
             "text": question["text"],

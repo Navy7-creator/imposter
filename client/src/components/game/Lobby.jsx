@@ -1,5 +1,6 @@
 import React from 'react';
 import { categories, games } from '../../data/gameData';
+import ScoringHelp from '../ScoringHelp';
 
 export default function Lobby({ room, currentPlayer, start, error, emit, leaveRoom }) {
   const game = games.find(([id]) => id === room.modeId);
@@ -43,13 +44,11 @@ export default function Lobby({ room, currentPlayer, start, error, emit, leaveRo
         </div>
       )}
 
-      {currentPlayer?.isAdmin && (
-        <button className="primary" onClick={start} disabled={!canStart}>
-          Start round <span>→</span>
-        </button>
-      )}
-
-      <button className="secondary" onClick={leaveRoom}>Exit lobby</button>
+      <div className="action-group">
+        {currentPlayer?.isAdmin && <button className="primary" onClick={start} disabled={!canStart}>Start round <span>→</span></button>}
+        <button className="secondary" onClick={leaveRoom}>Exit lobby</button>
+        <ScoringHelp />
+      </div>
 
       {error && <p className="error">{error}</p>}
     </div>

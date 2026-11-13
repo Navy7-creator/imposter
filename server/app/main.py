@@ -12,6 +12,7 @@ from app.game_modes.categories import CATEGORY_CATALOG
 from app.game_modes.registry import get_game_mode
 from app.lobby.room_manager import (
     add_player,
+    rejoin_player,
     advance_after_descriptions,
     advance_after_votes,
     get_or_create_room,
@@ -111,6 +112,7 @@ def finalize_result(room, result):
     for player in room["players"]:
         player["score"] = player.get("score", 0) + result.get("scores", {}).get(player["id"], 0)
     result["scores"] = {player["id"]: player.get("score", 0) for player in room["players"]}
+    room["lastResult"] = result
     save_result(room, result)
     return result
 
@@ -185,6 +187,20 @@ async def handle_event(websocket, event, payload):
         websocket.scope["room_code"], websocket.scope["player_id"] = room["code"], player["id"]
         connections.setdefault(room["code"], {})[player["id"]] = websocket
         await send_event(websocket, "room:joined", {"room": public_room(room, player["id"]), "player": player})
+        await broadcast(room)
+        return
+
+    if event == "room:rejoin":
+        room = rooms.get((payload.get("roomCode") or "").strip().upper())
+        if room is None:
+            raise ValueError("Room not found. Start or join a room from the home screen.")
+        player = rejoin_player(room, payload.get("playerId"), payload.get("name", ""), payload.get("avatar"), payload.get("avatarColor"))
+        websocket.scope["room_code"], websocket.scope["player_id"] = room["code"], player["id"]
+        connections.setdefault(room["code"], {})[player["id"]] = websocket
+        await send_event(websocket, "room:joined", {"room": public_room(room, player["id"]), "player": player})
+        if room.get("round") and room["phase"] not in ("lobby", "ended"):
+            mode = get_game_mode(room["modeId"])
+            await send_event(websocket, "round:assignment", mode.private_assignment(room["round"], player["id"], active_players(room)) if room["modeId"] == "never-say-do" else mode.private_assignment(room["round"], player["id"]))
         await broadcast(room)
         return
 
@@ -420,17 +436,20 @@ async def websocket_endpoint(websocket: WebSocket):
             for player in room["players"]:
                 if player["id"] == player_id:
                     player["connected"] = False
-            round_state = room.get("round")
-            if round_state and player_id in round_state.get("player_order", []):
-                turn_index = round_state.get("turn_index", 0)
-                removed_index = round_state["player_order"].index(player_id)
-                round_state["player_order"].remove(player_id)
-                if removed_index < turn_index:
-                    round_state["turn_index"] = turn_index - 1
-            if leaving_player and leaving_player.get("isAdmin"):
-                transfer_admin(room)
-            if room["phase"] not in ("lobby", "results", "ended") and len(active_players(room)) < 2:
-                room["phase"] = "ended"
+                    player["disconnected_at"] = asyncio.get_running_loop().time()
+            async def expire_disconnect():
+                await asyncio.sleep(30)
+                if room_code not in rooms:
+                    return
+                player = next((item for item in room["players"] if item["id"] == player_id), None)
+                if player and not player.get("connected") and not player.get("left"):
+                    player["left"] = True
+                    if player.get("isAdmin"):
+                        transfer_admin(room)
+                    if room["phase"] not in ("lobby", "results", "ended") and len(active_players(room)) < 2:
+                        room["phase"] = "ended"
+                    await broadcast(room)
+            asyncio.create_task(expire_disconnect())
             if room["phase"] == "predictions":
                 await finish_never_say_do_voting(room)
             await broadcast(room)

@@ -2,18 +2,19 @@ import React, { useState } from 'react';
 
 export default function RoomShare({ code }) {
   const [copied, setCopied] = useState(false);
-  const link = `${window.location.origin}/?room=${code}`;
+  const link = `${window.location.origin}/?room=${encodeURIComponent(code)}`;
+  const message = `🕵️ Join my Imposter game room! Click to jump straight in: ${link}`;
 
   const share = async () => {
     try {
       if (navigator.share) {
         await navigator.share({
           title: 'Join my Imposter & Friends room',
-          text: `Join room ${code}`,
+          text: message,
           url: link,
         });
       } else {
-        await navigator.clipboard.writeText(link);
+        await navigator.clipboard.writeText(message);
         setCopied(true);
         setTimeout(() => setCopied(false), 1600);
       }

@@ -62,7 +62,10 @@ def confirm_guess(round_state, player_id):
     if confirmation["guardianId"] != player_id:
         raise ValueError("Only the number guardian can confirm this guess")
     round_state["winner_id"] = confirmation["guesserId"]
-    round_state["scores"][confirmation["guesserId"]] += 1
+    rank = len(round_state["guesses"])
+    points = {1: 500, 2: 350, 3: 200}.get(rank, 100)
+    round_state["scores"][confirmation["guesserId"]] += points
+    round_state["scores"][confirmation["guardianId"]] += 50
     round_state["pending_confirmation"] = None
 
 
